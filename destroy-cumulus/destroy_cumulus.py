@@ -710,7 +710,7 @@ class RDSCluster(Resource):
 
     def delete(self, get_client):
         client = get_client("rds")
-        client.delete_db_cluster(DBClusterIdentifier=self.id)
+        client.delete_db_cluster(DBClusterIdentifier=self.id, SkipFinalSnapshot=True)
 
 
 class RDSSubnetGroup(Resource):
@@ -753,7 +753,7 @@ class Secret(Resource):
 
     def delete(self, get_client):
         client = get_client("secretsmanager")
-        client.delete_secret(SecretId=str(self.arn))
+        client.delete_secret(SecretId=str(self.arn), RecoveryWindowInDays=7)
 
 
 class SecurityGroup(Resource):
@@ -912,13 +912,13 @@ class CumulusDestroyer:
         SNSTopic,
         SQSQueue,
         DynamoDBTable,
+        RDSCluster,
         RDSSubnetGroup,
         ECSCluster,
         ECSTaskDefinition,
         SecurityGroup,
         Secret,
         Bucket,
-        RDSCluster
     ]
 
     # Other ways to search for matching resources
