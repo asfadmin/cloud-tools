@@ -5,6 +5,7 @@ import logging
 import sys
 
 import boto3
+import botocore
 
 log = logging.getLogger(__name__)
 
@@ -615,10 +616,7 @@ class KMSKey(Resource):
 
     def delete(self, get_client):
         client = get_client("kms")
-        try:
-            client.schedule_key_deletion(KeyId=self.name)
-        except client.exceptions.KMSInvalidStateException as e:
-            log.warning("Delete failed: %s", e)
+        client.schedule_key_deletion(KeyId=self.name)
 
 
 class LambdaFunction(Resource):
@@ -990,6 +988,8 @@ class CumulusDestroyer:
             log.info("Destruction cancelled!")
             return
 
+        total = len(resources)
+        attempted, failures = 0, 0
         for resource in resources:
             prompt = f"Delete all {pluralize(resource.__class__.__name__)}?"
             group = resource.__class__.__name__
@@ -999,9 +999,22 @@ class CumulusDestroyer:
             if not prompter.confirm(f"Delete {resource}?", group):
                 continue
 
-            self._call_delete(resource)
+            try:
+                attempted += 1
+                self._call_delete(resource)
+            except botocore.exceptions.ClientError as e:
+                log.warning("Failed to delete %s: %s", resource, e)
+                failures += 1
 
-        log.info("Done destroying resources")
+        if failures != 0:
+            log.warning("%d resources failed to delete!", failures)
+
+        log.info(
+            "Done destroying resources [%d succeeded, %d failed, %d skipped]",
+            attempted - failures,
+            failures,
+            total - attempted
+        )
 
     def gather(self, collector):
         if isinstance(collector, type):
