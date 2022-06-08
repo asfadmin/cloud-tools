@@ -137,18 +137,22 @@ class Resource:
         return []
 
     def __str__(self):
-        return " ".join(line.strip() for line in self.display())
+        return " ".join(line.strip() for line in self.display(include_tags=False))
 
-    def display(self):
-        tags = self.tags.copy()
-        deployment = tags.pop("Deployment", None)
+    def display(self, include_tags=True):
+        deployment = self.tags.get("Deployment")
         if deployment is not None:
             deployment = f" ({deployment}) "
+
         header_line = f"[{self.__class__.__name__}]{deployment or ' '}{self.name}"
 
-        if tags:
-            tags_list = [f"  {k}={v}" for k, v in tags.items()]
-            return [header_line, *tags_list]
+        if include_tags:
+            tags = self.tags.copy()
+            tags.pop("Deployment", None)
+
+            if tags:
+                tags_list = [f"  {k}={v}" for k, v in tags.items()]
+                return [header_line, *tags_list]
 
         return [header_line]
 
@@ -239,8 +243,8 @@ class ApiGateway(Resource):
         client = get_client("apigateway")
         client.delete_rest_api(restApiId=self.id)
 
-    def display(self):
-        lines = super().display()
+    def display(self, *args, **kwargs):
+        lines = super().display(*args, **kwargs)
         if self.name != self.id:
             lines[0] = "/".join((lines[0], self.id))
 
@@ -676,8 +680,8 @@ class NetworkInterface(Resource):
         super().__init__(name, id, arn=arn, tags=tags)
         self.status = status
 
-    def display(self):
-        lines = super().display()
+    def display(self, *args, **kwargs):
+        lines = super().display(*args, **kwargs)
         lines[0] = lines[0] + f" ({self.status})"
         return lines
 
@@ -992,7 +996,7 @@ class CumulusDestroyer:
             if not prompter.confirm_group(prompt, group):
                 continue
 
-            if not prompter.confirm(f"Delete {resource.display()[0]}?", group):
+            if not prompter.confirm(f"Delete {resource}?", group):
                 continue
 
             self._call_delete(resource)
