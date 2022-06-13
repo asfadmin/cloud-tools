@@ -140,12 +140,16 @@ class Resource:
     def __str__(self):
         return " ".join(line.strip() for line in self.display(include_tags=False))
 
+    def get_display_name(self):
+        return self.name
+
     def display(self, include_tags=True):
         deployment = self.tags.get("Deployment")
         if deployment is not None:
             deployment = f" ({deployment}) "
 
-        header_line = f"[{self.__class__.__name__}]{deployment or ' '}{self.name}"
+        name = self.get_display_name()
+        header_line = f"[{self.__class__.__name__}]{deployment or ' '}{name}"
 
         if include_tags:
             tags = self.tags.copy()
@@ -663,6 +667,9 @@ class LambdaLayerVersion(Resource):
             LayerName=self.name,
             VersionNumber=int(self.id)
         )
+
+    def get_display_name(self):
+        return f"{self.name}:{self.id}"
 
     def __hash__(self):
         return hash((self.__class__, self.id))
