@@ -1005,7 +1005,8 @@ class CumulusDestroyer:
             key=lambda res: (
                 self.SORT_KEY.get(res.__class__, len(Resource.TYPES)),
                 res.__class__.__name__,
-                res.tags.get("Deployment", "")
+                res.tags.get("Deployment", ""),
+                res.get_display_name()
             )
         )
 
