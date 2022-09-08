@@ -503,6 +503,34 @@ class ElasticsearchDomain(Resource):
         client.delete_domain(DomainName=self.name)
 
 
+class EventSourceMapping(Resource):
+    TYPE_FILTER = "lambda:event-source-mapping"
+
+    def __init__(self, id, event_source_arn, function_arn, arn=None, tags=()):
+        super().__init__(id, id, arn=arn, tags=tags)
+        self.event_source_arn = event_source_arn
+        self.function_arn = function_arn
+
+    @classmethod
+    def gather(cls, get_client, prefix):
+        client = get_client("lambda")
+        paginator = client.get_paginator("list_event_source_mappings")
+
+        return [
+            cls(entry["UUID"], Arn(entry["EventSourceArn"]), function_arn)
+            for response in paginator.paginate()
+            for entry in response.get("EventSourceMappings", ())
+            if (function_arn := Arn(entry["FunctionArn"])).name.startswith(prefix)
+        ]
+
+    def delete(self, get_client):
+        client = get_client("lambda")
+        client.delete_event_source_mapping(UUID=self.id)
+
+    def get_display_name(self):
+        return f"{self.event_source_arn.name} -> {self.function_arn.name}"
+
+
 class IAMInstanceProfile(Resource):
     TYPE_FILTER = "iam:instanceprofile"
 
@@ -908,6 +936,7 @@ class CumulusDestroyer:
         ApiGateway,
         LambdaFunction,
         LambdaLayerVersion,
+        EventSourceMapping,
         IAMInstanceProfile,
         IAMRole,
         IAMPolicy,
