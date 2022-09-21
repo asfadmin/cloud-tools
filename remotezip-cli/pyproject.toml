@@ -14,6 +14,7 @@ python = ">=3.8,<4"
 boto3 = "^1.24.76"
 aws-requests-auth = "^0.4.3"
 remotezip = "^0.9.4"
+humanize = "^4.4.0"
 
 
 [build-system]
