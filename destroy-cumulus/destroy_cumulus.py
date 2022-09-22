@@ -1136,7 +1136,7 @@ def pluralize(word):
     return word + "s"
 
 
-if __name__ == "__main__":
+def main():
     all_resources = {
         type_name: cls
         for type_name, cls in Resource.TYPES.items()
@@ -1193,3 +1193,7 @@ if __name__ == "__main__":
 
     except (KeyboardInterrupt, EOFError):
         log.error("\nOperation cancelled")
+
+
+if __name__ == "__main__":
+    main()
