@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "destroy-cumulus"
+version = "0.1.0"
+description = ""
+authors = ["Rohan Weeden <reweeden@alaska.edu>"]
+readme = "README.md"
+packages = [{include = "destroy_cumulus.py"}]
+
+[tool.poetry.scripts]
+destroy-cumulus = "destroy_cumulus:main"
+decumulus = "destroy_cumulus:main"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4"
+boto3 = "^1.24.78"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
