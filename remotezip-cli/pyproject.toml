@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"
-packages = [{include = "remotezip_cli"}]
+packages = [{include = "remotezip_cli.py"}]
 
 [tool.poetry.scripts]
 rz = "remotezip_cli:main"

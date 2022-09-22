@@ -83,3 +83,7 @@ def main():
             max_size = max(len(file_size) for _, file_size, *_ in lines)
             for date, file_size, *rest in lines:
                 print(date, f"{file_size:>{max_size}}", *rest)
+
+
+if __name__ == "__main__":
+    main()
