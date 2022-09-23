@@ -48,7 +48,7 @@ prefix `some-prefix` and printing verbose output:
 #
 # Resource gathering is implemented through 'collector' objects. A collector
 # is any object with a `gather(get_client, prefix) -> list[Resource]` method.
-# Most "Resource's are currently implemented as collectors that know how to
+# Most "Resource's" are currently implemented as collectors that know how to
 # find that type of resource. Usually these type of collectors should be
 # finding resources by name prefix, as there is already a
 # TaggedResourceCollector that can find resources by 'Deployment' tag.
