@@ -1139,7 +1139,9 @@ class Prompter:
 
 
 def pluralize(word):
-    if word[-2:] == "cy":
+    if word[-2:] == "ay":
+        return word + "s"
+    if word[-1:] == "y":
         return word[:-1] + "ies"
     return word + "s"
 
