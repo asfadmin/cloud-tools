@@ -337,9 +337,10 @@ class CloudWatchAlarm(Resource):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("describe_alarms")
 
+        kwargs = dict(AlarmNamePrefix=prefix) if prefix else {}
         return [
             cls.from_arn(Arn(entry["AlarmArn"]))
-            for response in paginator.paginate(AlarmNamePrefix=prefix)
+            for response in paginator.paginate(**kwargs)
             # NOTE: Ignoring composite alarms here
             for entry in response.get("MetricAlarms", ())
             if entry["AlarmName"].startswith(prefix)
@@ -361,9 +362,10 @@ class CloudWatchDashboard(Resource):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("list_dashboards")
 
+        kwargs = dict(DashboardNamePrefix=prefix) if prefix else {}
         return [
             cls.from_arn(Arn(entry["DashboardArn"]))
-            for response in paginator.paginate(DashboardNamePrefix=prefix)
+            for response in paginator.paginate(**kwargs)
             for entry in response.get("DashboardEntries", ())
             if entry["DashboardName"].startswith(prefix)
         ]
@@ -382,9 +384,10 @@ class CloudWatchEventRule(Resource):
         client = get_client("events")
         paginator = client.get_paginator("list_rules")
 
+        kwargs = dict(NamePrefix=prefix) if prefix else {}
         return [
             cls.from_arn(Arn(entry["Arn"]))
-            for response in paginator.paginate(NamePrefix=prefix)
+            for response in paginator.paginate(**kwargs)
             for entry in response.get("Rules", ())
             if entry["Name"].startswith(prefix)
         ]
@@ -413,9 +416,10 @@ class CloudWatchLogGroup(Resource):
         client = get_client("logs")
         paginator = client.get_paginator("describe_log_groups")
 
+        kwargs = dict(logGroupNamePrefix=prefix) if prefix else {}
         return [
             cls.from_arn(Arn(entry["arn"]))
-            for response in paginator.paginate(logGroupNamePrefix=prefix)
+            for response in paginator.paginate(**kwargs)
             for entry in response.get("logGroups", ())
             if prefix in entry["logGroupName"]
         ]
@@ -876,9 +880,10 @@ class SQSQueue(Resource):
         client = get_client("sqs")
         paginator = client.get_paginator("list_queues")
 
+        kwargs = dict(QueueNamePrefix=prefix) if prefix else {}
         return [
             cls(url, url)
-            for response in paginator.paginate(QueueNamePrefix=prefix)
+            for response in paginator.paginate(**kwargs)
             for url in response.get("QueueUrls", ())
             if url.startswith(prefix)
         ]
