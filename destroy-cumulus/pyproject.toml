@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "destroy-cumulus"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"
@@ -17,7 +17,6 @@ decumulus = "destroy_cumulus:main"
 [tool.poetry.dependencies]
 python = ">=3.8,<4"
 boto3 = "^1.24.78"
-
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.3"
