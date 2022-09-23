@@ -1,0 +1,15 @@
+name: Lint
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: TrueBrain/actions-flake8@v2
+        with:
+          max_line_length: 120
+          plugins: flake8-isort flake8-quotes
