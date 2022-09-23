@@ -759,13 +759,13 @@ class RDSSubnetGroup(Resource):
         paginator = client.get_paginator("describe_db_subnet_groups")
 
         return [
-            cls(name, entry["DBSubnetGroupId"])
+            cls.from_arn(Arn(entry["DBSubnetGroupArn"]))
             for response in paginator.paginate(
                 # NOTE(04/25/22): Filters are not supported yet
                 # Filters=[dict(Name="tag:Deployment", Values=[prefix + "*"])]
             )
             for entry in response.get("DBSubnetGroups", ())
-            if (name := entry["DBSubnetGroupName"]).startswith(prefix)
+            if entry["DBSubnetGroupName"].startswith(prefix)
         ]
 
     def delete(self, get_client):
