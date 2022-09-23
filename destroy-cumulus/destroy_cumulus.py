@@ -57,7 +57,9 @@ prefix `some-prefix` and printing verbose output:
 # 'Resource' objects. To add support for a new type of resource, just implement
 # a subclass of `Resource`. The only method that is required to implement is
 # `delete`, however, it is generally also a good idea to implement `gather`
-# and to add the resource to the ALL_RESOURCES list of the main manager object.
+# and to add the resource to the RESOURCE_DESTRUCTION_ORDER list of the main
+# manager object.
+#
 # Resource classes are defined in this file in alphabetical order.
 
 
@@ -930,8 +932,9 @@ class ResourceSet:
 
 class CumulusDestroyer:
     # Resources will be destroyed in the order they are defined here, so put
-    # dependent resources towards the end.
-    ALL_RESOURCES = [
+    # dependent resources towards the end. Resources not listed will be
+    # destroyed last.
+    RESOURCE_DESTRUCTION_ORDER = [
         CloudFormationStack,
         ApiGateway,
         LambdaFunction,
@@ -962,7 +965,7 @@ class CumulusDestroyer:
         TaggedResourceCollector
     ]
 
-    SORT_KEY = {cls: i for i, cls in enumerate(ALL_RESOURCES)}
+    _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
 
     def __init__(self, profile, prefix, auto_confirm=False):
         self.session = boto3.Session(profile_name=profile)
@@ -979,7 +982,7 @@ class CumulusDestroyer:
         collectors = [
             *(cls() for cls in self.OTHER_COLLECTORS),
             *(
-                resource for resource in self.ALL_RESOURCES
+                resource for resource in Resource.TYPES.values()
                 if hasattr(resource, "gather")
             )
         ]
@@ -1003,7 +1006,7 @@ class CumulusDestroyer:
         resources = sorted(
             resources,
             key=lambda res: (
-                self.SORT_KEY.get(res.__class__, len(Resource.TYPES)),
+                self._SORT_KEY.get(res.__class__, len(self._SORT_KEY)),
                 res.__class__.__name__,
                 res.tags.get("Deployment", ""),
                 res.get_display_name()
