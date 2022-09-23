@@ -877,7 +877,7 @@ class SQSQueue(Resource):
         paginator = client.get_paginator("list_queues")
 
         return [
-            cls(url)
+            cls(url, url)
             for response in paginator.paginate(QueueNamePrefix=prefix)
             for url in response.get("QueueUrls", ())
             if url.startswith(prefix)
