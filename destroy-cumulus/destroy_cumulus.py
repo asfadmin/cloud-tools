@@ -2,6 +2,7 @@ import argparse
 import functools
 import itertools
 import logging
+import re
 import sys
 
 import boto3
@@ -877,6 +878,8 @@ class SNSTopic(Resource):
 class SQSQueue(Resource):
     TYPE_FILTER = "sqs"
 
+    URL_PATTERN = re.compile(r"https://.+/\d{12}/(.+)")
+
     @classmethod
     def gather(cls, get_client, prefix):
         client = get_client("sqs")
@@ -884,10 +887,11 @@ class SQSQueue(Resource):
 
         kwargs = dict(QueueNamePrefix=prefix) if prefix else {}
         return [
-            cls(url, url)
+            cls(name, name)
             for response in paginator.paginate(**kwargs)
             for url in response.get("QueueUrls", ())
-            if url.startswith(prefix)
+            if (m := cls.URL_PATTERN.match(url))
+            and (name := m.group(1)).startswith(prefix)
         ]
 
     def delete(self, get_client):
