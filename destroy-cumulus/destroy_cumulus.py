@@ -80,12 +80,14 @@ class Arn:
             return
         elif colon_idx == -1:
             # Only slashes
-            self.type, self.id = ident.split("/", 1)
+            self.type, self.name, *rest = ident.split("/", 2)
+            self.id = "".join(rest)
             if self.type == "":
                 # Weird special case for apigateway where arns look like this:
                 # arn:aws:apigateway:us-west-2::/restapis/d36my9ab58
-                self.type, self.id = self.id.split("/", 1)
-            self.name = self.id
+                self.type, self.name = self.name, self.id
+            if not self.id:
+                self.id = self.name
             self.type_id = f"{self.service}:{self.type}"
         elif slash_idx == -1 or colon_idx < slash_idx:
             # Only colons or colons come first
