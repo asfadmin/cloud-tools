@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import functools
 import itertools
 import logging
@@ -855,6 +856,73 @@ class SecurityGroup(Resource):
         return self.network_interfaces
 
 
+class SNSSubscription(Resource):
+    TYPE_FILTER = "sns:subscription"
+
+    def __init__(
+        self,
+        name,
+        id,
+        topic_arn=None,
+        protocol=None,
+        endpoint=None,
+        arn=None,
+        tags=()
+    ):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.topic_arn = topic_arn
+        self.protocol = protocol
+        self.endpoint = endpoint
+
+    @classmethod
+    def from_arn(cls, arn, topic_arn=None, protocol=None, endpoint=None, tags=()):
+        return cls(
+            arn.name,
+            arn.id,
+            topic_arn=topic_arn,
+            protocol=protocol,
+            endpoint=endpoint,
+            arn=arn,
+            tags=tags
+        )
+
+    @classmethod
+    def gather(cls, get_client, prefix):
+        client = get_client("sns")
+        paginator = client.get_paginator("list_subscriptions")
+
+        return [
+            cls.from_arn(
+                Arn(entry["SubscriptionArn"]),
+                topic_arn,
+                entry["Protocol"],
+                entry["Endpoint"]
+            )
+            for response in paginator.paginate()
+            for entry in response.get("Subscriptions", ())
+            if (topic_arn := Arn(entry["TopicArn"])).name.startswith(prefix)
+        ]
+
+    def delete(self, get_client):
+        client = get_client("sns")
+        client.unsubscribe(SubscriptionArn=str(self.arn))
+
+    def get_display_name(self):
+        endpoint = self.get_endpoint_name()
+        topic_name = self.get_topic_name()
+        return f"({self.protocol}) {endpoint} <- {topic_name}"
+
+    def get_topic_name(self):
+        if self.topic_arn:
+            return self.topic_arn.name
+
+    def get_endpoint_name(self):
+        if self.protocol in ("application", "firehose", "lambda", "sqs"):
+            with contextlib.suppress(Exception):
+                return Arn(self.endpoint).name
+        return self.endpoint
+
+
 class SNSTopic(Resource):
     TYPE_FILTER = "sns"
 
@@ -959,6 +1027,7 @@ class CumulusDestroyer:
         CloudWatchEventRule,
         CloudWatchLogGroup,
         ElasticsearchDomain,
+        SNSSubscription,
         SNSTopic,
         SQSQueue,
         DynamoDBTable,
