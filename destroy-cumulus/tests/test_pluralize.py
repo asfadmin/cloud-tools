@@ -24,6 +24,8 @@ def test_ies(inp, out):
 
 @pytest.mark.parametrize("inp,out", (
     ("Gateway", "Gateways"),
+    ("Key", "Keys"),
+    ("Toy", "Toys"),
 ))
 def test_ys(inp, out):
     assert pluralize(inp) == out
