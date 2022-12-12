@@ -11,5 +11,6 @@ jobs:
       - uses: actions/checkout@v3
       - uses: TrueBrain/actions-flake8@v2
         with:
+          flake8_version: 5.0.4
           max_line_length: 120
           plugins: flake8-isort flake8-quotes
