@@ -1176,10 +1176,11 @@ class Prompter:
             return True
 
         all_groups_value = self.groups.get(None)
-        if all_groups_value == "Y":
-            return True
-        if all_groups_value != "P":
-            return False
+        if all_groups_value is not None:
+            if all_groups_value == "Y":
+                return True
+            if all_groups_value != "P":
+                return False
 
         group_value = self.groups.get(group)
         if group is not None:
