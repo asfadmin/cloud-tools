@@ -1,7 +1,12 @@
+import logging
 import os
 
 import boto3
 import pytest
+
+logging.getLogger("destroy_cumulus").setLevel(logging.DEBUG)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("boto3").setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -1,7 +1,10 @@
+from unittest import mock
+
 import pytest
-from destroy_cumulus import main
+from destroy_cumulus import log, main
 
 
 def test_main_error():
-    with pytest.raises(SystemExit):
-        main()
+    with mock.patch.object(log, "setLevel", autospec=True):
+        with pytest.raises(SystemExit):
+            main([])
