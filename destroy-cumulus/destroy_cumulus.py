@@ -1006,6 +1006,43 @@ class StepFunction(Resource):
         client = get_client("stepfunctions")
         client.delete_state_machine(stateMachineArn=str(self.arn))
 
+#
+# End of resource subclasses
+#
+
+
+class ResourceGatherer:
+    def __init__(self, prefix, type_filters=()):
+        self.prefix = prefix
+        self.type_filters = type_filters
+
+    def gather(self, get_client):
+        collectors = [
+            TaggedResourceCollector(type_filters=self.type_filters),
+            *(
+                cls
+                for type_name, cls in Resource.TYPES.items()
+                if hasattr(cls, "gather")
+                if not self.type_filters or type_name in self.type_filters
+            )
+        ]
+
+        return ResourceSet(
+            resource
+            for collector in collectors
+            for resource in self.gather_from(get_client, collector)
+        )
+
+    def gather_from(self, get_client, collector):
+        if isinstance(collector, type):
+            log.info("Gathering %s", pluralize(collector.__name__))
+        else:
+            log.info("Gathering from %s", collector.__class__.__name__)
+
+        resources = collector.gather(get_client, self.prefix)
+        log.debug("Gathered %d resources", len(resources))
+        return resources
+
 
 class ResourceSet:
     def __init__(self, iterable=()):
@@ -1027,6 +1064,12 @@ class ResourceSet:
 
     def __iter__(self):
         return iter(self._resources.values())
+
+    def __len__(self):
+        return len(self._resources)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({list(self._resources.values())})"
 
 
 class CumulusDestroyer:
@@ -1068,9 +1111,8 @@ class CumulusDestroyer:
 
     _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
 
-    def __init__(self, profile, prefix, auto_confirm=False):
+    def __init__(self, profile, auto_confirm=False):
         self.session = boto3.Session(profile_name=profile)
-        self.prefix = prefix
         self.auto_confirm = auto_confirm
         # Prompt for confirmations on a more granular level
         self.pick_confirm = False
@@ -1078,30 +1120,6 @@ class CumulusDestroyer:
     @functools.lru_cache()
     def client(self, *args, **kwargs):
         return self.session.client(*args, **kwargs)
-
-    def destroy_all(self):
-        collectors = [
-            *(cls() for cls in self.OTHER_COLLECTORS),
-            *(
-                resource for resource in Resource.TYPES.values()
-                if hasattr(resource, "gather")
-            )
-        ]
-
-        resources = ResourceSet(
-            resource
-            for collector in collectors
-            for resource in self.gather(collector)
-        )
-
-        self.destroy(resources)
-
-    def destroy_one(self, cls):
-        resources = self.gather(cls)
-        if not resources:
-            return
-
-        self.destroy(resources)
 
     def destroy(self, resources):
         resources = sorted(
@@ -1156,16 +1174,6 @@ class CumulusDestroyer:
             failures,
             total - attempted
         )
-
-    def gather(self, collector):
-        if isinstance(collector, type):
-            log.info("Gathering %s", pluralize(collector.__name__))
-        else:
-            log.info("Gathering from %s", collector.__class__.__name__)
-
-        resources = collector.gather(self.client, self.prefix)
-        log.debug("Gathered %d resources", len(resources))
-        return resources
 
     def _call_delete(self, resource):
         for dependency in resource.get_dependencies():
@@ -1243,12 +1251,7 @@ def pluralize(word):
     return word + "s"
 
 
-def main():
-    all_resources = {
-        type_name: cls
-        for type_name, cls in Resource.TYPES.items()
-    }
-
+def main(args=None):
     parser = argparse.ArgumentParser(
         description="Clean up partially destroyed Cumulus stacks",
         epilog=HELP,
@@ -1259,14 +1262,14 @@ def main():
         "--filter",
         help="Filter the type of resource to destroy (e.g. --filter s3:bucket)",
         nargs="*",
-        choices=all_resources.keys(),
+        choices=list(Resource.TYPES),
         metavar="filters"
     )
     parser.add_argument("--profile", help="AWS profile")
     parser.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
     parser.add_argument("--yes", "-y", help="Auto confirm prompts", action="store_true", default=False)
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=args)
 
     log.addHandler(logging.StreamHandler(sys.stdout))
     level = max(logging.INFO - args.verbose * 10, 0)
@@ -1274,30 +1277,15 @@ def main():
 
     destroyer = CumulusDestroyer(
         profile=args.profile,
-        prefix=args.prefix,
         auto_confirm=args.yes
     )
+    gatherer = ResourceGatherer(
+        prefix=args.prefix,
+        type_filters=args.filter
+    )
     try:
-        if not args.filter:
-            destroyer.destroy_all()
-        else:
-            collector = TaggedResourceCollector(
-                type_filters=args.filter,
-            )
-            resources = ResourceSet(
-                resource
-                for resource in (
-                    *destroyer.gather(collector),
-                    *(
-                        resource
-                        for resource_type in args.filter
-                        if hasattr(all_resources[resource_type], "gather")
-                        for resource in destroyer.gather(all_resources[resource_type])
-                    )
-                )
-            )
-            destroyer.destroy(resources)
-
+        resources = gatherer.gather(destroyer.client)
+        destroyer.destroy(resources)
     except (KeyboardInterrupt, EOFError):
         log.error("\nOperation cancelled")
 

@@ -1,5 +1,6 @@
 import os
 
+import boto3
 import pytest
 
 
@@ -11,3 +12,8 @@ def aws_credentials():
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+
+
+@pytest.fixture(scope="session")
+def get_client():
+    return boto3.client
