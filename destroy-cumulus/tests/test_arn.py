@@ -71,6 +71,22 @@ def test_arn_cloudformation():
     assert arn.type_id == "cloudformation:stack"
 
 
+def test_arn_iam_role():
+    arn = Arn(
+        "arn:aws:iam::123456789012:"
+        "role/ngap/system/s3-all-region-access-role"
+    )
+
+    assert arn.partition == "aws"
+    assert arn.service == "iam"
+    assert arn.region == ""
+    assert arn.account == "123456789012"
+    assert arn.type == "role"
+    assert arn.name == "s3-all-region-access-role"
+    assert arn.id == "ngap/system/s3-all-region-access-role"
+    assert arn.type_id == "iam:role"
+
+
 def test_arn_api_gateway():
     arn = Arn("arn:aws:apigateway:us-west-2::/restapis/d36my9ab58")
 
