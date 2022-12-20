@@ -631,10 +631,15 @@ class IAMRole(Resource):
         paginator = client.get_paginator("list_roles")
 
         return [
-            cls.from_arn(Arn(entry["Arn"]), tags=entry.get("Tags", ()))
+            cls(
+                name,
+                entry["RoleId"],
+                arn=Arn(entry["Arn"]),
+                tags=entry.get("Tags", ())
+            )
             for response in paginator.paginate()
             for entry in response.get("Roles", ())
-            if entry["RoleName"].startswith(prefix)
+            if (name := entry["RoleName"]).startswith(prefix)
         ]
 
     def delete(self, get_client):
@@ -657,6 +662,12 @@ class IAMRole(Resource):
                 )
 
         client.delete_role(RoleName=self.name)
+
+    def get_display_name(self):
+        if self.arn:
+            return self.arn.id
+
+        return self.name
 
 
 class KMSKey(Resource):
