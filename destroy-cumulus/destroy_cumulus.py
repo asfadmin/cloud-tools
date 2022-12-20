@@ -743,14 +743,14 @@ class NetworkInterface(Resource):
         super().__init__(name, id, arn=arn, tags=tags)
         self.status = status
 
+    def delete(self, get_client):
+        client = get_client("ec2")
+        client.delete_network_interface(NetworkInterfaceId=self.id)
+
     def display(self, *args, **kwargs):
         lines = super().display(*args, **kwargs)
         lines[0] = lines[0] + f" ({self.status})"
         return lines
-
-    def delete(self, get_client):
-        client = get_client("ec2")
-        client.delete_network_interface(NetworkInterfaceId=self.id)
 
 
 class RDSCluster(Resource):
