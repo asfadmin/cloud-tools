@@ -1059,6 +1059,7 @@ class CumulusDestroyer:
         ApiGateway,
         LambdaFunction,
         LambdaLayerVersion,
+        StepFunction,
         EventSourceMapping,
         CloudWatchDashboard,
         CloudWatchAlarm,
