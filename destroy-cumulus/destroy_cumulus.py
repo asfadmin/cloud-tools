@@ -89,7 +89,7 @@ class Arn:
                 # arn:aws:apigateway:us-west-2::/restapis/d36my9ab58
                 self.type, self.name = rest.split("/", 1)
                 self.id = self.name
-            elif self.type == "role":
+            elif self.service == "iam":
                 # Special case for roles where the role names can be prefixed such as
                 # arn:aws:iam::123456789012:role/ngap/system/s3-all-region-access-role
                 self.id = rest
@@ -598,10 +598,15 @@ class IAMPolicy(Resource):
         paginator = client.get_paginator("list_policies")
 
         return [
-            cls.from_arn(Arn(entry["Arn"]), tags=entry.get("Tags", ()))
+            cls(
+                name,
+                entry["PolicyId"],
+                arn=Arn(entry["Arn"]),
+                tags=entry.get("Tags", ())
+            )
             for response in paginator.paginate(Scope="Local")
             for entry in response.get("Policies", ())
-            if entry["PolicyName"].startswith(prefix)
+            if (name := entry["PolicyName"]).startswith(prefix)
         ]
 
     def delete(self, get_client):
@@ -620,6 +625,12 @@ class IAMPolicy(Resource):
                 )
 
         client.delete_policy(PolicyArn=str(self.arn))
+
+    def get_display_name(self):
+        if self.arn:
+            return self.arn.id
+
+        return self.name
 
 
 class IAMRole(Resource):

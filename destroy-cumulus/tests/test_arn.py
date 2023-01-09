@@ -87,6 +87,22 @@ def test_arn_iam_role():
     assert arn.type_id == "iam:role"
 
 
+def test_arn_iam_policy():
+    arn = Arn(
+        "arn:aws:iam::123456789012:"
+        "policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy"
+    )
+
+    assert arn.partition == "aws"
+    assert arn.service == "iam"
+    assert arn.region == ""
+    assert arn.account == "123456789012"
+    assert arn.type == "policy"
+    assert arn.name == "rew-n-cumulus-dev-nisar-lambda_role_sqs_policy"
+    assert arn.id == "service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy"
+    assert arn.type_id == "iam:policy"
+
+
 def test_arn_api_gateway():
     arn = Arn("arn:aws:apigateway:us-west-2::/restapis/d36my9ab58")
 
