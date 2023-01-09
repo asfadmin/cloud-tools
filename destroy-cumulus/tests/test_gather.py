@@ -3,9 +3,9 @@ from unittest import mock
 import moto
 import pytest
 from destroy_cumulus import (
+    CumulusDestroyer,
     ElasticsearchDomain,
     Resource,
-    ResourceGatherer,
     SQSQueue
 )
 
@@ -20,16 +20,32 @@ def mock_queues(get_client):
 
 
 @pytest.mark.slow
-def test_gather_all_empty_prefixs(monkeypatch, get_client):
+def test_gather_all_empty_prefixs(monkeypatch):
     # Patch out unsupported types
     monkeypatch.setitem(Resource.TYPES, "es:domain", mock.create_autospec(ElasticsearchDomain))
     # Mock all is very slow. Using it as a decorator causes the slowness to
     # affect pytest collection time.
     with moto.mock_all():
-        gatherer = ResourceGatherer(prefix="")
-        resources = gatherer.gather(get_client)
+        destroyer = CumulusDestroyer(profile=None, prefix="")
+        resources = destroyer.gather()
 
     assert len(resources) == 1
+
+
+@moto.mock_resourcegroupstaggingapi
+def test_gather_filter_queues(mock_queues):
+    destroyer = CumulusDestroyer(
+        profile=None,
+        prefix="test",
+        type_filters=["sqs"]
+    )
+    resources = destroyer.gather()
+
+    assert len(resources) == 1
+    queue = next(iter(resources))
+
+    assert queue.name == "test-queue"
+    assert queue.id == "test-queue"
 
 
 def test_gather_queues(get_client, mock_queues):
@@ -37,18 +53,6 @@ def test_gather_queues(get_client, mock_queues):
 
     assert len(resources) == 1
     queue = resources[0]
-
-    assert queue.name == "test-queue"
-    assert queue.id == "test-queue"
-
-
-@moto.mock_resourcegroupstaggingapi
-def test_gatherer_filter_queues(get_client, mock_queues):
-    gatherer = ResourceGatherer(prefix="test", type_filters=["sqs"])
-    resources = gatherer.gather(get_client)
-
-    assert len(resources) == 1
-    queue = next(iter(resources))
 
     assert queue.name == "test-queue"
     assert queue.id == "test-queue"
