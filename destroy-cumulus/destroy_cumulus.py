@@ -395,15 +395,30 @@ class CloudWatchEventRule(Resource):
     @classmethod
     def gather(cls, get_client, prefix):
         client = get_client("events")
-        paginator = client.get_paginator("list_rules")
+        rule_paginator = client.get_paginator("list_rules")
+        target_paginator = client.get_paginator("list_targets_by_rule")
 
         kwargs = dict(NamePrefix=prefix) if prefix else {}
-        return [
+        named_rules = [
             cls.from_arn(Arn(entry["Arn"]))
-            for response in paginator.paginate(**kwargs)
+            for response in rule_paginator.paginate(**kwargs)
             for entry in response.get("Rules", ())
             if entry["Name"].startswith(prefix)
         ]
+        # Some rules don't have names set and so they default to 'terraform*'
+        # NOTE: These subqueries can be quite slow if there are a lot of
+        # rules named 'terraform*'
+        unnamed_rules = [
+            cls.from_arn(Arn(entry["Arn"]))
+            for response in rule_paginator.paginate(NamePrefix="terraform")
+            for entry in response.get("Rules", ())
+            if any(
+                Arn(entry["Arn"]).name.startswith(prefix)
+                for response in target_paginator.paginate(Rule=entry["Name"])
+                for entry in response.get("Targets", ())
+            )
+        ]
+        return [*named_rules, *unnamed_rules]
 
     def delete(self, get_client):
         client = get_client("events")
