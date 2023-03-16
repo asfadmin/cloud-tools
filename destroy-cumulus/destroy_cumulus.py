@@ -5,6 +5,7 @@ import itertools
 import logging
 import re
 import sys
+import time
 
 import boto3
 import botocore
@@ -1263,7 +1264,12 @@ class CumulusDestroyer:
 
     def destroy(self, resources=None):
         if resources is None:
+            # TODO(reweeden): Move timing debug inside self.gather()
+            start = time.perf_counter()
             resources = self.gather()
+            end = time.perf_counter()
+
+            log.debug("Total time gathering was %.1fs", end - start)
 
         resources = sorted(
             resources,
@@ -1341,8 +1347,11 @@ class CumulusDestroyer:
         else:
             log.info("Gathering from %s", collector.__class__.__name__)
 
+        start = time.perf_counter()
         resources = collector.gather(self.client, self.name_matcher)
-        log.debug("Gathered %d resources", len(resources))
+        end = time.perf_counter()
+
+        log.debug("Gathered %d resources in %.1fs", len(resources), end - start)
         return resources
 
     def _call_delete(self, resource):
