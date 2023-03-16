@@ -1237,11 +1237,6 @@ class CumulusDestroyer:
         KMSKey,
     ]
 
-    # Other ways to search for matching resources
-    OTHER_COLLECTORS = [
-        TaggedResourceCollector,
-    ]
-
     _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
 
     def __init__(
