@@ -405,6 +405,10 @@ class CloudWatchEventRule(Resource):
             for entry in response.get("Rules", ())
             if entry["Name"].startswith(prefix)
         ]
+
+        if "terraform".startswith(prefix):
+            return named_rules
+
         # Some rules don't have names set and so they default to 'terraform*'
         # NOTE: These subqueries can be quite slow if there are a lot of
         # rules named 'terraform*'
