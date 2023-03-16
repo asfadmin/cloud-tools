@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import functools
 import itertools
+import json
 import logging
 import re
 import sys
@@ -254,6 +255,112 @@ class TaggedResourceCollector:
 
         return resources
 
+
+class UnnamedIAMRoleCollector:
+    """Collect IAM roles named `terraform*` by looking at the roles policies
+    and checking the policy resources against the stack prefix.
+    """
+
+    def __init__(self, type_filters=()):
+        self.type_filters = type_filters
+
+    def gather(self, get_client, name_matcher):
+        if self.type_filters and "iam:role" not in self.type_filters:
+            return []
+
+        client = get_client("iam")
+        role_paginator = client.get_paginator("list_roles")
+        attached_policy_paginator = client.get_paginator("list_attached_role_policies")
+        inline_policy_paginator = client.get_paginator("list_role_policies")
+
+        return [
+            IAMRole(
+                role_name,
+                entry["RoleId"],
+                arn=Arn(entry["Arn"]),
+                tags=entry.get("Tags", ())
+            )
+            for response in role_paginator.paginate()
+            for entry in response.get("Roles", ())
+            if (
+                (role_name := entry["RoleName"]).startswith("terraform")
+                and (
+                    self._has_matching_attached_policy(
+                        client,
+                        attached_policy_paginator.paginate(RoleName=role_name),
+                        name_matcher
+                    )
+                    or self._has_matching_inline_policy(
+                        client,
+                        inline_policy_paginator.paginate(RoleName=role_name),
+                        role_name,
+                        name_matcher
+                    )
+                )
+            )
+        ]
+
+    def _has_matching_attached_policy(self, client, attached_policies, name_matcher):
+        for response in attached_policies:
+            for entry in response.get("AttachedPolicies", ()):
+                policy_arn = entry["PolicyArn"]
+
+                response = client.get_policy(PolicyArn=policy_arn)
+                version_id = response["Policy"]["DefaultVersionId"]
+
+                response = client.get_policy_version(
+                    PolicyArn=policy_arn,
+                    VersionId=version_id
+                )
+                document = response["Document"]
+                if isinstance(document, str):
+                    document = json.loads(document)
+
+                if self._policy_document_matches(document, name_matcher):
+                    return True
+
+        return False
+
+    def _has_matching_inline_policy(self, client, inline_policies, role_name, name_matcher):
+        for response in inline_policies:
+            for policy_name in response.get("PolicyNames", ()):
+                response = client.get_role_policy(
+                    RoleName=role_name,
+                    PolicyName=policy_name
+                )
+                document = response["PolicyDocument"]
+                if isinstance(document, str):
+                    document = json.loads(document)
+
+                if self._policy_document_matches(document, name_matcher):
+                    return True
+
+        return False
+
+    def _policy_document_matches(self, document, name_matcher):
+        version = document["Version"]
+        if version != "2012-10-17":
+            log.warning("Unsupported IAM document with version '%s'", version)
+
+        for statement in document.get("Statement", ()):
+            resources = statement.get("Resource", ())
+            if isinstance(resources, str):
+                resources = [resources]
+
+            for resource in resources:
+                if resource == "*":
+                    continue
+
+                arn = Arn(resource)
+                if arn.name != "*" and name_matcher.matches(arn.name):
+                    return True
+
+                # ARN parsing for bucket objects is a little weird
+                if arn.type_id.startswith("s3:"):
+                    if arn.type != "*" and name_matcher.matches(arn.type):
+                        return True
+
+        return False
 #
 # Resource subclasses defined in alphabetical order
 #
@@ -1322,6 +1429,7 @@ class CumulusDestroyer:
     def gather(self):
         collectors = [
             TaggedResourceCollector(type_filters=self.type_filters),
+            UnnamedIAMRoleCollector(type_filters=self.type_filters),
             *(
                 cls
                 for type_name, cls in Resource.TYPES.items()
