@@ -18,8 +18,23 @@ def url(value: str) -> ParseResult:
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("url", help="URL of object to access", type=url)
-    parser.add_argument(
+
+    parser.add_argument("--profile", help="AWS profile name")
+
+    subparsers = parser.add_subparsers(
+        title="command",
+        required=True,
+        # Without this, the 'required' option doesn't work
+        dest="command"
+    )
+
+    parser_extract = subparsers.add_parser(
+        "extract",
+        aliases=("x", "ex",),
+        help="Extract a member of an archive to stdout"
+    )
+    parser_extract.add_argument("url", help="URL of object to access", type=url)
+    parser_extract.add_argument(
         "filename",
         help=(
             "File to extract from the archive. If none provided, list the "
@@ -27,7 +42,15 @@ def get_parser() -> argparse.ArgumentParser:
         ),
         nargs="?"
     )
-    parser.add_argument("--profile", help="AWS profile name")
+    parser_extract.set_defaults(func=cmd_extract)
+
+    parser_list = subparsers.add_parser(
+        "list",
+        aliases="l",
+        help="List the members of an archive"
+    )
+    parser_list.add_argument("url", help="URL of object to access", type=url)
+    parser_list.set_defaults(func=cmd_list)
 
     return parser
 
@@ -58,31 +81,39 @@ def get_request_params(args: argparse.Namespace):
     return url, auth, headers
 
 
+def cmd_extract(args):
+    url, auth, headers = get_request_params(args)
+
+    with RemoteZip(url, auth=auth, headers=headers) as rz:
+        with rz.open(args.filename) as f:
+            with os.fdopen(sys.stdout.fileno(), "wb", closefd=False) as stdout:
+                for data in f:
+                    stdout.write(data)
+                stdout.flush()
+
+
+def cmd_list(args):
+    url, auth, headers = get_request_params(args)
+
+    with RemoteZip(url, auth=auth, headers=headers) as rz:
+        lines = [
+            (
+                str(datetime(*zi.date_time)),
+                humanize.naturalsize(zi.file_size, True),
+                zi.filename
+            )
+            for zi in rz.infolist()
+        ]
+        max_size = max(len(file_size) for _, file_size, *_ in lines)
+        for date, file_size, *rest in lines:
+            print(date, f"{file_size:>{max_size}}", *rest)
+
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    url, auth, headers = get_request_params(args)
-
-    with RemoteZip(url, auth=auth, headers=headers) as rz:
-        if args.filename:
-            with rz.open(args.filename) as f:
-                with os.fdopen(sys.stdout.fileno(), "wb", closefd=False) as stdout:
-                    for data in f:
-                        stdout.write(data)
-                    stdout.flush()
-        else:
-            lines = [
-                (
-                    str(datetime(*zi.date_time)),
-                    humanize.naturalsize(zi.file_size, True),
-                    zi.filename
-                )
-                for zi in rz.infolist()
-            ]
-            max_size = max(len(file_size) for _, file_size, *_ in lines)
-            for date, file_size, *rest in lines:
-                print(date, f"{file_size:>{max_size}}", *rest)
+    args.func(args)
 
 
 if __name__ == "__main__":
