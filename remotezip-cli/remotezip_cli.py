@@ -1,9 +1,15 @@
 import argparse
+import inspect
 import os
+import stat
 import sys
 import urllib.parse
+import zipfile
+from binascii import hexlify
+from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
+from typing import Any, Callable
 from urllib.parse import ParseResult
 
 import boto3
@@ -50,6 +56,24 @@ def get_parser() -> argparse.ArgumentParser:
         help="List the members of an archive"
     )
     parser_list.add_argument("url", help="URL of object to access", type=url)
+    zipinfo_group = parser_list.add_mutually_exclusive_group()
+    zipinfo_group.add_argument(
+        "--zipinfo", "-Z",
+        help="Define the attributes to print out for each ZipInfo entry",
+        nargs="*",
+        action="extend",
+        choices=[
+            name
+            for name, _ in inspect.getmembers(zipfile.ZipInfo, inspect.isdatadescriptor)
+            if not name.startswith("_")
+        ],
+        default=None
+    )
+    zipinfo_group.add_argument(
+        "--compressed", "-c",
+        help="Show details about the compressed contents of files",
+        action="store_true"
+    )
     parser_list.set_defaults(func=cmd_list)
 
     return parser
@@ -95,18 +119,164 @@ def cmd_extract(args):
 def cmd_list(args):
     url, auth, headers = get_request_params(args)
 
+    def str_external_attr(val):
+        hi = val >> 16
+        lo = val & 0xFFFF
+
+        res = []
+        if hi:
+            res.append(stat.filemode(hi))
+        if lo:
+            res.append(f"ext=0x{lo:x}")
+
+        return " ".join(res)
+
+    column_info = {
+        "compress_type": ColumnInfo(
+            "Comp. Type",
+            "compress_type",
+            lambda x: zipfile.compressor_names.get(x) or str(x)
+        ),
+        "compress_size": ColumnInfo(
+            "Comp. Size",
+            "compress_size",
+            lambda x: humanize.naturalsize(x, True),
+            align=">"
+        ),
+        "comment": ColumnInfo(
+            "Comment",
+            "comment",
+            lambda x: x.decode(errors="replace")
+        ),
+        "create_system": ColumnInfo(
+            "Create System",
+            "create_system"
+        ),
+        "create_version": ColumnInfo(
+            "Create Version",
+            "create_version"
+        ),
+        "date_time": ColumnInfo(
+            "Timestamp",
+            "date_time",
+            lambda x: str(datetime(*x))
+        ),
+        "external_attr": ColumnInfo(
+            "File Attributes",
+            "external_attr",
+            str_external_attr
+        ),
+        "extra": ColumnInfo(
+            "Extra",
+            "extra",
+            lambda x: "0x" + hexlify(x).decode()
+        ),
+        "extract_version": ColumnInfo(
+            "PKZIP Version",
+            "extract_version",
+        ),
+        "file_size": ColumnInfo(
+            "Size",
+            "file_size",
+            lambda x: humanize.naturalsize(x, True),
+            align=">"
+        ),
+        "filename": ColumnInfo(
+            "Name",
+            "filename"
+        ),
+        "flag_bits": ColumnInfo(
+            "Flag Bits",
+            "flag_bits",
+            bin,
+            align=">"
+        ),
+        "header_offset": ColumnInfo(
+            "Header Offset",
+            "header_offset",
+            align=">"
+        ),
+        "internal_attr": ColumnInfo(
+            "Attributes",
+            "internal_attr"
+        ),
+        "orig_filename": ColumnInfo(
+            "Original Name",
+            "orig_filename"
+        ),
+        "reserved": ColumnInfo(
+            "Reserved",
+            "reserved"
+        ),
+        "volume": ColumnInfo(
+            "Volume",
+            "volume"
+        )
+    }
+
+    table = DisplayTable()
+    if args.zipinfo is None:
+        table.add_column(column_info["date_time"])
+        table.add_column(column_info["file_size"])
+        if args.compressed:
+            table.add_column(column_info["compress_size"])
+        table.add_column(column_info["filename"])
+    else:
+        for col_name in args.zipinfo:
+            col_info = column_info.get(col_name) or ColumnInfo(col_name, col_name)
+            table.add_column(col_info)
+
     with RemoteZip(url, auth=auth, headers=headers) as rz:
-        lines = [
-            (
-                str(datetime(*zi.date_time)),
-                humanize.naturalsize(zi.file_size, True),
-                zi.filename
-            )
-            for zi in rz.infolist()
-        ]
-        max_size = max(len(file_size) for _, file_size, *_ in lines)
-        for date, file_size, *rest in lines:
-            print(date, f"{file_size:>{max_size}}", *rest)
+        for zipinfo in rz.infolist():
+            table.add_row([col.get_value(zipinfo) for col in table.columns])
+
+    print(f"Archive: {url}")
+
+    table.display()
+
+    print("-" * 10)
+    print(f"{len(table.rows)} entries")
+
+
+@dataclass
+class ColumnInfo:
+    name: str
+    attr: str
+    str_func: Callable[[Any], str] = str
+    align: str = "<"
+    max_size: int = 0
+
+    def __post_init__(self):
+        self.max_size = len(self.name)
+
+    def get_value(self, zipinfo: zipfile.ZipInfo) -> str:
+        return self.str_func(getattr(zipinfo, self.attr))
+
+
+class DisplayTable:
+    def __init__(self):
+        self.columns = []
+        self.rows = []
+
+    def add_column(self, col: ColumnInfo):
+        self.columns.append(col)
+
+    def add_row(self, row):
+        self.rows.append(row)
+        for i, (col, col_info) in enumerate(zip(row, self.columns)):
+            col_info.max_size = max(len(col), col_info.max_size)
+
+    def display(self):
+        print(*(
+            f"{col.name:{col.align}{col.max_size}}"
+            for col in self.columns
+        ))
+        print(*("-" * col.max_size for col in self.columns))
+        for line in self.rows:
+            print(*(
+                f"{val:{col.align}{col.max_size}}"
+                for col, val in zip(self.columns, line)
+            ))
 
 
 def main():
