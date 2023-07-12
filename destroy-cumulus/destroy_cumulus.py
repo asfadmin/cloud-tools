@@ -132,7 +132,7 @@ class Resource:
         self.name = name
         self.id = id
         self.arn = arn
-        self.tags = {tag["Key"]: tag["Value"] for tag in tags}
+        self.tags = _tag_dict(tags)
 
     @classmethod
     def from_arn(cls, arn, tags=()):
@@ -191,7 +191,7 @@ class TaggedResourceCollector:
         self.type_filters = type_filters
         self.tag_filters = tag_filters
 
-    def gather(self, get_client, prefix):
+    def gather(self, get_client, name_matcher):
         client = get_client("resourcegroupstaggingapi")
         tag_paginator = client.get_paginator("get_tag_values")
         paginator = client.get_paginator("get_resources")
@@ -202,7 +202,7 @@ class TaggedResourceCollector:
                 tag
                 for response in tag_paginator.paginate(Key="Deployment")
                 for tag in response["TagValues"]
-                if tag.startswith(prefix)
+                if name_matcher.matches(tag)
             ]
 
             if not tag_values:
@@ -244,7 +244,7 @@ class ApiGateway(Resource):
     TYPE_FILTER = "apigateway:restapis"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("apigateway")
         paginator = client.get_paginator("get_rest_apis")
 
@@ -256,7 +256,7 @@ class ApiGateway(Resource):
             )
             for response in paginator.paginate()
             for entry in response.get("items", ())
-            if (name := entry["name"]).startswith(prefix)
+            if name_matcher.matches(name := entry["name"])
         ]
 
     def delete(self, get_client):
@@ -275,14 +275,14 @@ class Bucket(Resource):
     TYPE_FILTER = "s3"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("s3")
         response = client.list_buckets()
 
         return [
             cls(name, name)
             for entry in response.get("Buckets", ())
-            if (name := entry["Name"]).startswith(prefix)
+            if name_matcher.matches(name := entry["Name"])
         ]
 
     def delete(self, get_client):
@@ -325,7 +325,7 @@ class CloudFormationStack(Resource):
     TYPE_FILTER = "cloudformation:stack"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("cloudformation")
         paginator = client.get_paginator("list_stacks")
 
@@ -333,7 +333,7 @@ class CloudFormationStack(Resource):
             cls.from_arn(Arn(entry["StackId"]))
             for response in paginator.paginate()
             for entry in response.get("StackSummaries", ())
-            if entry["StackName"].startswith(prefix)
+            if name_matcher.matches(entry["StackName"])
             if entry["StackStatus"] not in ("DELETE_IN_PROGRESS", "DELETE_COMPLETE")
         ]
 
@@ -346,17 +346,20 @@ class CloudWatchAlarm(Resource):
     TYPE_FILTER = "cloudwatch:alarm"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("describe_alarms")
 
-        kwargs = dict(AlarmNamePrefix=prefix) if prefix else {}
+        kwargs = dict(
+            AlarmNamePrefix=name_matcher.prefix
+        ) if name_matcher.prefix else {}
+
         return [
             cls.from_arn(Arn(entry["AlarmArn"]))
             for response in paginator.paginate(**kwargs)
             # NOTE: Ignoring composite alarms here
             for entry in response.get("MetricAlarms", ())
-            if entry["AlarmName"].startswith(prefix)
+            if name_matcher.matches(entry["AlarmName"])
         ]
 
     def delete(self, get_client):
@@ -371,16 +374,19 @@ class CloudWatchDashboard(Resource):
     TYPE_FILTER = "cloudwatch:dashboard"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("list_dashboards")
 
-        kwargs = dict(DashboardNamePrefix=prefix) if prefix else {}
+        kwargs = dict(
+            DashboardNamePrefix=name_matcher.prefix
+        ) if name_matcher.prefix else {}
+
         return [
             cls.from_arn(Arn(entry["DashboardArn"]))
             for response in paginator.paginate(**kwargs)
             for entry in response.get("DashboardEntries", ())
-            if entry["DashboardName"].startswith(prefix)
+            if name_matcher.matches(entry["DashboardName"])
         ]
 
     def delete(self, get_client):
@@ -393,20 +399,23 @@ class CloudWatchEventRule(Resource):
     TYPE_FILTER = "events:rule"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("events")
         rule_paginator = client.get_paginator("list_rules")
         target_paginator = client.get_paginator("list_targets_by_rule")
 
-        kwargs = dict(NamePrefix=prefix) if prefix else {}
+        kwargs = dict(
+            NamePrefix=name_matcher.prefix
+        ) if name_matcher.prefix else {}
+
         named_rules = [
             cls.from_arn(Arn(entry["Arn"]))
             for response in rule_paginator.paginate(**kwargs)
             for entry in response.get("Rules", ())
-            if entry["Name"].startswith(prefix)
+            if name_matcher.matches(entry["Name"])
         ]
 
-        if "terraform".startswith(prefix):
+        if name_matcher.matches("terraform"):
             return named_rules
 
         # Some rules don't have names set and so they default to 'terraform*'
@@ -417,7 +426,7 @@ class CloudWatchEventRule(Resource):
             for response in rule_paginator.paginate(NamePrefix="terraform")
             for entry in response.get("Rules", ())
             if any(
-                Arn(entry["Arn"]).name.startswith(prefix)
+                name_matcher.matches(Arn(entry["Arn"]).name)
                 for response in target_paginator.paginate(Rule=entry["Name"])
                 for entry in response.get("Targets", ())
             )
@@ -444,16 +453,19 @@ class CloudWatchLogGroup(Resource):
     TYPE_FILTER = "logs:log-group"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("logs")
         paginator = client.get_paginator("describe_log_groups")
 
-        kwargs = dict(logGroupNamePrefix=prefix) if prefix else {}
+        kwargs = dict(
+            logGroupNamePrefix=name_matcher.prefix
+        ) if name_matcher.prefix else {}
+
         return [
             cls.from_arn(Arn(entry["arn"]))
             for response in paginator.paginate(**kwargs)
             for entry in response.get("logGroups", ())
-            if prefix in entry["logGroupName"]
+            if name_matcher.matches(entry["logGroupName"])
         ]
 
     def delete(self, get_client):
@@ -465,7 +477,7 @@ class DynamoDBTable(Resource):
     TYPE_FILTER = "dynamodb:table"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("dynamodb")
         paginator = client.get_paginator("list_tables")
 
@@ -473,7 +485,7 @@ class DynamoDBTable(Resource):
             cls(name, name)
             for response in paginator.paginate()
             for name in response.get("TableNames", ())
-            if name.startswith(prefix)
+            if name_matcher.matches(name)
         ]
 
     def delete(self, get_client):
@@ -485,7 +497,7 @@ class ECSCluster(Resource):
     TYPE_FILTER = "ecs:cluster"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("ecs")
         paginator = client.get_paginator("list_clusters")
 
@@ -493,7 +505,7 @@ class ECSCluster(Resource):
             cls.from_arn(arn)
             for response in paginator.paginate()
             for arn_ in response["clusterArns"]
-            if (arn := Arn(arn_)).name.startswith(prefix)
+            if name_matcher.matches((arn := Arn(arn_)).name)
         ]
 
     def delete(self, get_client):
@@ -505,7 +517,7 @@ class ECSTaskDefinition(Resource):
     TYPE_FILTER = "ecs:task-definition"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("ecs")
         paginator = client.get_paginator("list_task_definitions")
 
@@ -513,7 +525,7 @@ class ECSTaskDefinition(Resource):
             cls.from_arn(arn)
             for response in paginator.paginate()
             for arn_ in response["taskDefinitionArns"]
-            if (arn := Arn(arn_)).name.startswith(prefix)
+            if name_matcher.matches((arn := Arn(arn_)).name)
         ]
 
     def delete(self, get_client):
@@ -527,13 +539,13 @@ class ElasticsearchDomain(Resource):
     TYPE_FILTER = "es:domain"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("opensearch")
 
         return [
             cls(name, name)
             for entry in client.list_domain_names()["DomainNames"]
-            if (name := entry["DomainName"]).startswith(prefix)
+            if name_matcher.matches(name := entry["DomainName"])
         ]
 
     def delete(self, get_client):
@@ -550,7 +562,7 @@ class EventSourceMapping(Resource):
         self.function_arn = function_arn
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("lambda")
         paginator = client.get_paginator("list_event_source_mappings")
 
@@ -558,7 +570,7 @@ class EventSourceMapping(Resource):
             cls(entry["UUID"], Arn(entry["EventSourceArn"]), function_arn)
             for response in paginator.paginate()
             for entry in response.get("EventSourceMappings", ())
-            if (function_arn := Arn(entry["FunctionArn"])).name.startswith(prefix)
+            if name_matcher.matches((function_arn := Arn(entry["FunctionArn"])).name)
         ]
 
     def delete(self, get_client):
@@ -581,7 +593,7 @@ class IAMInstanceProfile(Resource):
         return cls(arn.name, arn.id, roles, arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("iam")
         paginator = client.get_paginator("list_instance_profiles")
 
@@ -593,7 +605,7 @@ class IAMInstanceProfile(Resource):
             )
             for response in paginator.paginate()
             for entry in response.get("InstanceProfiles", ())
-            if entry["InstanceProfileName"].startswith(prefix)
+            if name_matcher.matches(entry["InstanceProfileName"])
         ]
 
     def delete(self, get_client):
@@ -612,7 +624,7 @@ class IAMPolicy(Resource):
     TYPE_FILTER = "iam:policy"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("iam")
         paginator = client.get_paginator("list_policies")
 
@@ -625,7 +637,7 @@ class IAMPolicy(Resource):
             )
             for response in paginator.paginate(Scope="Local")
             for entry in response.get("Policies", ())
-            if (name := entry["PolicyName"]).startswith(prefix)
+            if name_matcher.matches(name := entry["PolicyName"])
         ]
 
     def delete(self, get_client):
@@ -656,7 +668,7 @@ class IAMRole(Resource):
     TYPE_FILTER = "iam:role"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("iam")
         paginator = client.get_paginator("list_roles")
 
@@ -669,7 +681,7 @@ class IAMRole(Resource):
             )
             for response in paginator.paginate()
             for entry in response.get("Roles", ())
-            if (name := entry["RoleName"]).startswith(prefix)
+            if name_matcher.matches(name := entry["RoleName"])
         ]
 
     def delete(self, get_client):
@@ -715,7 +727,7 @@ class LambdaFunction(Resource):
     TYPE_FILTER = "lambda:function"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("lambda")
         paginator = client.get_paginator("list_functions")
 
@@ -723,7 +735,7 @@ class LambdaFunction(Resource):
             cls.from_arn(Arn(entry["FunctionArn"]))
             for response in paginator.paginate()
             for entry in response.get("Functions", ())
-            if entry["FunctionName"].startswith(prefix)
+            if name_matcher.matches(entry["FunctionName"])
         ]
 
     def delete(self, get_client):
@@ -735,7 +747,7 @@ class LambdaLayerVersion(Resource):
     TYPE_FILTER = "lambda:layer"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("lambda")
         layer_paginator = client.get_paginator("list_layers")
         version_paginator = client.get_paginator("list_layer_versions")
@@ -744,7 +756,7 @@ class LambdaLayerVersion(Resource):
             cls.from_arn(Arn(ventry["LayerVersionArn"]))
             for response in layer_paginator.paginate()
             for entry in response.get("Layers", ())
-            if (name := entry["LayerName"]).startswith(prefix)
+            if name_matcher.matches(name := entry["LayerName"])
             for vresponse in version_paginator.paginate(LayerName=name)
             for ventry in vresponse["LayerVersions"]
         ]
@@ -787,7 +799,7 @@ class RDSCluster(Resource):
     TYPE_FILTER = "rds:cluster"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_clusters")
 
@@ -800,7 +812,7 @@ class RDSCluster(Resource):
             )
             for response in paginator.paginate()
             for entry in response.get("DBClusters", ())
-            if (name := entry["DBClusterIdentifier"]).startswith(prefix)
+            if name_matcher.matches(name := entry["DBClusterIdentifier"])
         ]
 
     def delete(self, get_client):
@@ -812,7 +824,7 @@ class RDSSubnetGroup(Resource):
     TYPE_FILTER = "rds:subgrp"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_subnet_groups")
 
@@ -820,10 +832,10 @@ class RDSSubnetGroup(Resource):
             cls.from_arn(Arn(entry["DBSubnetGroupArn"]))
             for response in paginator.paginate(
                 # NOTE(04/25/22): Filters are not supported yet
-                # Filters=[dict(Name="tag:Deployment", Values=[prefix + "*"])]
+                # Filters=[dict(Name="tag:Deployment", Values=[name_matcher.prefix + "*"])]
             )
             for entry in response.get("DBSubnetGroups", ())
-            if entry["DBSubnetGroupName"].startswith(prefix)
+            if name_matcher.matches(entry["DBSubnetGroupName"])
         ]
 
     def delete(self, get_client):
@@ -835,7 +847,7 @@ class Secret(Resource):
     TYPE_FILTER = "secretsmanager:secret"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("secretsmanager")
         paginator = client.get_paginator("list_secrets")
 
@@ -843,7 +855,7 @@ class Secret(Resource):
             cls.from_arn(Arn(entry["ARN"]), tags=entry.get("Tags", ()))
             for response in paginator.paginate()
             for entry in response.get("SecretList", ())
-            if entry["Name"].startswith(prefix)
+            if name_matcher.matches(entry["Name"])
         ]
 
     def delete(self, get_client):
@@ -863,10 +875,39 @@ class SecurityGroup(Resource):
         return cls(arn.name, arn.id, [], arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("ec2")
         paginator = client.get_paginator("describe_security_groups")
         eni_paginator = client.get_paginator("describe_network_interfaces")
+
+        tagged_entries = (
+            entry
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Name="tag:Deployment",
+                        Values=[name_matcher.prefix + "*"]
+                    )
+                ]
+            )
+            for entry in response.get("SecurityGroups", ())
+            if (
+                deployment := _tag_dict(entry.get("Tags", ())).get("Deployment")
+            ) and name_matcher.matches(deployment)
+        )
+        named_entries = (
+            entry
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Name="group-name",
+                        Values=[name_matcher.prefix + "*"]
+                    )
+                ]
+            )
+            for entry in response.get("SecurityGroups", ())
+            if name_matcher.matches(entry["GroupName"])
+        )
 
         return [
             cls(
@@ -886,16 +927,7 @@ class SecurityGroup(Resource):
                 ],
                 tags=entry.get("Tags", ())
             )
-            for response in itertools.chain(
-                # We need to make two separate queries because filters are 'and'ed
-                paginator.paginate(
-                    Filters=[dict(Name="tag:Deployment", Values=[prefix + "*"])]
-                ),
-                paginator.paginate(
-                    Filters=[dict(Name="group-name", Values=[prefix + "*"])]
-                )
-            )
-            for entry in response.get("SecurityGroups", ())
+            for entry in itertools.chain(tagged_entries, named_entries)
         ]
 
     def delete(self, get_client):
@@ -937,7 +969,7 @@ class SNSSubscription(Resource):
         )
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("sns")
         paginator = client.get_paginator("list_subscriptions")
 
@@ -950,7 +982,7 @@ class SNSSubscription(Resource):
             )
             for response in paginator.paginate()
             for entry in response.get("Subscriptions", ())
-            if (topic_arn := Arn(entry["TopicArn"])).name.startswith(prefix)
+            if name_matcher.matches((topic_arn := Arn(entry["TopicArn"])).name)
         ]
 
     def delete(self, get_client):
@@ -977,7 +1009,7 @@ class SNSTopic(Resource):
     TYPE_FILTER = "sns"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("sns")
         paginator = client.get_paginator("list_topics")
 
@@ -985,7 +1017,7 @@ class SNSTopic(Resource):
             cls.from_arn(arn)
             for response in paginator.paginate()
             for entry in response.get("Topics", ())
-            if (arn := Arn(entry["TopicArn"])).name.startswith(prefix)
+            if name_matcher.matches((arn := Arn(entry["TopicArn"])).name)
         ]
 
     def delete(self, get_client):
@@ -999,17 +1031,20 @@ class SQSQueue(Resource):
     URL_PATTERN = re.compile(r"https://.+/\d{12}/(.+)")
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("sqs")
         paginator = client.get_paginator("list_queues")
 
-        kwargs = dict(QueueNamePrefix=prefix) if prefix else {}
+        kwargs = dict(
+            QueueNamePrefix=name_matcher.prefix
+        ) if name_matcher.prefix else {}
+
         return [
             cls(name, name)
             for response in paginator.paginate(**kwargs)
             for url in response.get("QueueUrls", ())
             if (m := cls.URL_PATTERN.match(url))
-            and (name := m.group(1)).startswith(prefix)
+            and name_matcher.matches(name := m.group(1))
         ]
 
     def delete(self, get_client):
@@ -1021,7 +1056,7 @@ class StepFunction(Resource):
     TYPE_FILTER = "states:stateMachine"
 
     @classmethod
-    def gather(cls, get_client, prefix):
+    def gather(cls, get_client, name_matcher):
         client = get_client("stepfunctions")
         paginator = client.get_paginator("list_state_machines")
 
@@ -1029,7 +1064,7 @@ class StepFunction(Resource):
             cls.from_arn(arn)
             for response in paginator.paginate()
             for entry in response.get("stateMachines", ())
-            if (arn := Arn(entry["stateMachineArn"])).name.startswith(prefix)
+            if name_matcher.matches((arn := Arn(entry["stateMachineArn"])).name)
         ]
 
     def delete(self, get_client):
@@ -1109,9 +1144,9 @@ class CumulusDestroyer:
 
     _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
 
-    def __init__(self, profile, prefix, type_filters=(), auto_confirm=False):
+    def __init__(self, profile, name_matcher, type_filters=(), auto_confirm=False):
         self.session = boto3.Session(profile_name=profile)
-        self.prefix = prefix
+        self.name_matcher = name_matcher
         self.type_filters = type_filters
         self.auto_confirm = auto_confirm
         # Prompt for confirmations on a more granular level
@@ -1201,7 +1236,7 @@ class CumulusDestroyer:
         else:
             log.info("Gathering from %s", collector.__class__.__name__)
 
-        resources = collector.gather(self.client, self.prefix)
+        resources = collector.gather(self.client, self.name_matcher)
         log.debug("Gathered %d resources", len(resources))
         return resources
 
@@ -1273,12 +1308,24 @@ class Prompter:
         return value in "YP"
 
 
+class NameMatcher:
+    def __init__(self, prefix):
+        self.prefix = prefix
+
+    def matches(self, value):
+        return value.startswith(self.prefix)
+
+
 def pluralize(word):
     if word[-2:] in ("ay", "ey", "oy"):
         return word + "s"
     if word[-1:] == "y":
         return word[:-1] + "ies"
     return word + "s"
+
+
+def _tag_dict(tags):
+    return {tag["Key"]: tag["Value"] for tag in tags}
 
 
 def main(args=None):
@@ -1308,7 +1355,7 @@ def main(args=None):
 
     destroyer = CumulusDestroyer(
         profile=args.profile,
-        prefix=args.prefix,
+        name_matcher=NameMatcher(args.prefix),
         type_filters=args.filter,
         auto_confirm=args.yes
     )
