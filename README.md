@@ -9,12 +9,12 @@ dependencies separate and out of the global python environment.
 
 For example to install the `destroy-cumulus` tool from Github:
 ```
-pipx install git+ssh://git@github.com/<user>/<repo>.git#subdirectory=destroy-cumulus
+pipx install git+ssh://git@github.com/asfadmin/cloud-tools.git#subdirectory=destroy-cumulus
 ```
 
 Or from local clone:
 ```
-git clone git@github.com/<user>/<repo>.git
+git clone git@github.com/asfadmin/cloud-tools.git
 pipx install -e cloud-tools/destroy-cumulus
 ```
 Note that the use of `-e` is optional, but will install the package in editable
