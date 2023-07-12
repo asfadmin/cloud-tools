@@ -40,6 +40,11 @@ To destroy all tagged and prefixed resources with the prefix `some-prefix`:
 
   destroy_cumulus.py some-prefix
 
+To destroy all tagged and prefixed resources with the prefix `some-prefix`
+except for resources with the prefix `some-prefix-ok1` or `some-prefix-ok2`:
+
+  destroy_cumulus.py some-prefix --exclude some-prefix-ok1 some-prefix-ok2
+
 To destroy all tagged and prefixed DynamoDB tables and RDS clusters with the
 prefix `some-prefix` and printing verbose output:
 
@@ -48,8 +53,8 @@ prefix `some-prefix` and printing verbose output:
 
 # Developer notes
 #
-# Resource gathering is implemented through 'collector' objects. A collector
-# is any object with a `gather(get_client, prefix) -> list[Resource]` method.
+# Resource gathering is implemented through 'collector' objects. A collector is
+# any object with a `gather(get_client, name_matcher) -> list[Resource]` method.
 # Most "Resource's" are currently implemented as collectors that know how to
 # find that type of resource. Usually these type of collectors should be
 # finding resources by name prefix, as there is already a
@@ -1317,11 +1322,18 @@ class Prompter:
 
 
 class NameMatcher:
-    def __init__(self, prefix):
+    def __init__(self, prefix, exclude=()):
         self.prefix = prefix
+        self.exclude = exclude
 
     def matches(self, value):
-        return value.startswith(self.prefix)
+        if not value.startswith(self.prefix):
+            return False
+
+        return not any(
+            value.startswith(prefix)
+            for prefix in self.exclude
+        )
 
 
 def pluralize(word):
@@ -1344,12 +1356,19 @@ def main(args=None):
     )
     parser.add_argument("prefix", help="Stack prefix (e.g. asf-cumulus-dev)")
     parser.add_argument(
+        "--exclude",
+        help="Stack prefixes to ignore",
+        nargs="*",
+        default=(),
+        metavar="exclude"
+    )
+    parser.add_argument(
         "--filter",
         help="Filter the type of resource to destroy (e.g. --filter s3:bucket)",
         nargs="*",
         default=(),
         choices=list(Resource.TYPES),
-        metavar="filters"
+        metavar="filter"
     )
     parser.add_argument("--profile", help="AWS profile")
     parser.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
@@ -1363,7 +1382,10 @@ def main(args=None):
 
     destroyer = CumulusDestroyer(
         profile=args.profile,
-        name_matcher=NameMatcher(args.prefix),
+        name_matcher=NameMatcher(
+            args.prefix,
+            exclude=args.exclude
+        ),
         type_filters=args.filter,
         auto_confirm=args.yes
     )
