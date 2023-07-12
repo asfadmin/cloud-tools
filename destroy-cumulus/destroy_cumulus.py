@@ -458,14 +458,22 @@ class CloudWatchLogGroup(Resource):
         paginator = client.get_paginator("describe_log_groups")
 
         kwargs = dict(
-            logGroupNamePrefix=name_matcher.prefix
+            logGroupNamePattern=name_matcher.prefix
         ) if name_matcher.prefix else {}
 
         return [
-            cls.from_arn(Arn(entry["arn"]))
+            # For some reason the arn here takes the form of a 'log-stream'
+            # with the stream name set to '*'. This causes the arn id parsing
+            # to think all log groups have the same id of '*'.
+            # Note. This could also be fixed by reworking the ARN parsing to
+            # have specific knowledge about each service's ARN format.
+            cls.from_arn(Arn(entry["arn"][:-2]))
             for response in paginator.paginate(**kwargs)
             for entry in response.get("logGroups", ())
-            if name_matcher.matches(entry["logGroupName"])
+            if any(
+                section and name_matcher.matches(section)
+                for section in entry["logGroupName"].split("/")
+            )
         ]
 
     def delete(self, get_client):
