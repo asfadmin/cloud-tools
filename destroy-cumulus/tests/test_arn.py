@@ -134,3 +134,19 @@ def test_arn_cloudwatch_log_group():
     assert arn.name == "/aws/lambda/lambda-name"
     assert arn.id == "/aws/lambda/lambda-name"
     assert arn.type_id == "logs:log-group"
+
+
+def test_arn_cloudwatch_log_stream():
+    arn = Arn(
+        "arn:aws:logs:us-west-2:123456789012:"
+        "log-group:/aws/rds/cluster/cluster-name/postgresql:*"
+    )
+
+    assert arn.partition == "aws"
+    assert arn.service == "logs"
+    assert arn.region == "us-west-2"
+    assert arn.account == "123456789012"
+    assert arn.type == "log-group"
+    assert arn.name == "/aws/rds/cluster/cluster-name/postgresql"
+    assert arn.id == "*"
+    assert arn.type_id == "logs:log-group"
