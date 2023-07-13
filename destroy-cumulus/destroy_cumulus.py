@@ -244,10 +244,12 @@ class TaggedResourceCollector:
             if arn.type_id == "rds:cluster" and self.RDS_RID_PATTERN.match(arn.id):
                 continue
 
-            resources.append(cls.from_arn(
-                arn,
-                tags=[tag for tag in entry.get("Tags", ()) if tag["Key"] == "Deployment"]
-            ))
+            resources.append(
+                cls.from_arn(
+                    arn,
+                    tags=entry.get("Tags", ()),
+                )
+            )
 
         return resources
 
@@ -828,7 +830,7 @@ class RDSCluster(Resource):
         paginator = client.get_paginator("describe_db_clusters")
 
         return [
-            cls.from_arn(Arn(entry["DBClusterArn"]), tags=entry["TagList"])
+            cls.from_arn(Arn(entry["DBClusterArn"]), tags=entry.get("TagList", ()))
             for response in paginator.paginate()
             for entry in response.get("DBClusters", ())
             if name_matcher.matches(entry["DBClusterIdentifier"])
@@ -937,7 +939,7 @@ class SecurityGroup(Resource):
                         entry["Description"],
                         entry["NetworkInterfaceId"],
                         entry["Status"],
-                        tags=entry["TagSet"]
+                        tags=entry.get("TagSet", ()),
                     )
                     for response in eni_paginator.paginate(
                         Filters=[dict(Name="group-id", Values=[entry["GroupId"]])]
@@ -1163,13 +1165,19 @@ class CumulusDestroyer:
 
     _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
 
-    def __init__(self, profile, name_matcher, type_filters=(), auto_confirm=False):
+    def __init__(
+        self,
+        profile,
+        name_matcher,
+        type_filters=(),
+        auto_confirm=False,
+        display_tags=False,
+    ):
         self.session = boto3.Session(profile_name=profile)
         self.name_matcher = name_matcher
         self.type_filters = type_filters
         self.auto_confirm = auto_confirm
-        # Prompt for confirmations on a more granular level
-        self.pick_confirm = False
+        self.display_tags = display_tags
 
     @functools.lru_cache()
     def client(self, *args, **kwargs):
@@ -1267,7 +1275,7 @@ class CumulusDestroyer:
         resource.delete(self.client)
 
     def _log_resource(self, resource, level=1):
-        for i, line in enumerate(resource.display()):
+        for i, line in enumerate(resource.display(self.display_tags)):
             if i == 0:
                 sep = "- "
             else:
@@ -1378,6 +1386,7 @@ def main(args=None):
     )
     parser.add_argument("--profile", help="AWS profile")
     parser.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
+    parser.add_argument("--tags", help="Display all resource tags", action="store_true")
     parser.add_argument("--yes", "-y", help="Auto confirm prompts", action="store_true", default=False)
 
     args = parser.parse_args(args=args)
@@ -1393,7 +1402,8 @@ def main(args=None):
             exclude=args.exclude
         ),
         type_filters=args.filter,
-        auto_confirm=args.yes
+        auto_confirm=args.yes,
+        display_tags=args.tags,
     )
     try:
         destroyer.destroy()
