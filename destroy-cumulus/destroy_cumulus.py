@@ -192,6 +192,8 @@ class Resource:
 
 
 class TaggedResourceCollector:
+    RDS_RID_PATTERN = re.compile("cluster-[a-zA-Z0-9]+")
+
     def __init__(self, type_filters=(), tag_filters=()):
         self.type_filters = type_filters
         self.tag_filters = tag_filters
@@ -231,6 +233,15 @@ class TaggedResourceCollector:
             cls = Resource.TYPES.get(arn.type_id)
             if cls is None:
                 log.warning("Unhandled arn '%s' for type '%s'", arn, arn.type_id)
+                continue
+
+            # https://github.com/asfadmin/cloud-tools/issues/13
+            #
+            # The ResourceGroupsTaggingAPI seems to return the same RDS cluster
+            # twice with two different ARNs. Once using the DBClusterIdentifier
+            # and once using the DbClusterResourceId. Here we look for the arn
+            # matching the DbClusterResourceId format and ignore it.
+            if arn.type_id == "rds:cluster" and self.RDS_RID_PATTERN.match(arn.id):
                 continue
 
             resources.append(cls.from_arn(
@@ -817,15 +828,10 @@ class RDSCluster(Resource):
         paginator = client.get_paginator("describe_db_clusters")
 
         return [
-            cls(
-                name,
-                entry["DBClusterIdentifier"],
-                arn=Arn(entry["DBClusterArn"]),
-                tags=entry["TagList"]
-            )
+            cls.from_arn(Arn(entry["DBClusterArn"]), tags=entry["TagList"])
             for response in paginator.paginate()
             for entry in response.get("DBClusters", ())
-            if name_matcher.matches(name := entry["DBClusterIdentifier"])
+            if name_matcher.matches(entry["DBClusterIdentifier"])
         ]
 
     def delete(self, get_client):
