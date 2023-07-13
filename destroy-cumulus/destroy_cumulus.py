@@ -889,7 +889,10 @@ class SecurityGroup(Resource):
 
     def __init__(self, name, id, network_interfaces, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
-        self.network_interfaces = network_interfaces
+        self.network_interfaces = sorted(
+            network_interfaces,
+            key=lambda res: (res.name, res.id),
+        )
 
     @classmethod
     def from_arn(cls, arn, tags=()):
