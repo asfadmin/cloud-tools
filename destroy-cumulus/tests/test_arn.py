@@ -21,7 +21,7 @@ def test_arn_s3_bucket():
 def test_arn_lambda_function():
     arn = Arn(
         "arn:aws:lambda:us-west-2:123456789012:"
-        "function:lambda-function-name"
+        "function:lambda-function-name",
     )
 
     assert arn.partition == "aws"
@@ -41,7 +41,7 @@ def test_arn_lambda_function():
 def test_arn_dynamodb_table():
     arn = Arn(
         "arn:aws:dynamodb:us-west-2:123456789012:"
-        "table/table-name"
+        "table/table-name",
     )
 
     assert arn.partition == "aws"
@@ -58,7 +58,7 @@ def test_arn_cloudformation():
     arn = Arn(
         "arn:aws:cloudformation:us-west-2:123456789012:"
         "stack/dmsn-cumulus-dev-thin-egress-app/"
-        "65d8dd50-df49-11eb-b204-020ba035f82f"
+        "65d8dd50-df49-11eb-b204-020ba035f82f",
     )
 
     assert arn.partition == "aws"
@@ -74,7 +74,7 @@ def test_arn_cloudformation():
 def test_arn_iam_role():
     arn = Arn(
         "arn:aws:iam::123456789012:"
-        "role/ngap/system/s3-all-region-access-role"
+        "role/ngap/system/s3-all-region-access-role",
     )
 
     assert arn.partition == "aws"
@@ -90,7 +90,7 @@ def test_arn_iam_role():
 def test_arn_iam_policy():
     arn = Arn(
         "arn:aws:iam::123456789012:"
-        "policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy"
+        "policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy",
     )
 
     assert arn.partition == "aws"
@@ -123,7 +123,7 @@ def test_arn_api_gateway():
 def test_arn_cloudwatch_log_group():
     arn = Arn(
         "arn:aws:logs:us-west-2:123456789012:"
-        "log-group:/aws/lambda/lambda-name"
+        "log-group:/aws/lambda/lambda-name",
     )
 
     assert arn.partition == "aws"
@@ -139,7 +139,7 @@ def test_arn_cloudwatch_log_group():
 def test_arn_cloudwatch_log_stream():
     arn = Arn(
         "arn:aws:logs:us-west-2:123456789012:"
-        "log-group:/aws/rds/cluster/cluster-name/postgresql:*"
+        "log-group:/aws/rds/cluster/cluster-name/postgresql:*",
     )
 
     assert arn.partition == "aws"

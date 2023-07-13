@@ -32,7 +32,7 @@ def test_empty_prefix():
 def test_prefix_exclude():
     name_matcher = NameMatcher(
         prefix="foo",
-        exclude=["foobar", "foobaz"]
+        exclude=["foobar", "foobaz"],
     )
 
     assert name_matcher.matches("foo")

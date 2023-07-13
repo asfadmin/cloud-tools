@@ -29,7 +29,7 @@ def test_gather_all_empty_prefixs(monkeypatch):
     with moto.mock_all():
         destroyer = CumulusDestroyer(
             profile=None,
-            name_matcher=NameMatcher(prefix="")
+            name_matcher=NameMatcher(prefix=""),
         )
         resources = destroyer.gather()
 
@@ -41,7 +41,7 @@ def test_gather_filter_queues(mock_queues):
     destroyer = CumulusDestroyer(
         profile=None,
         name_matcher=NameMatcher(prefix="test"),
-        type_filters=["sqs"]
+        type_filters=["sqs"],
     )
     resources = destroyer.gather()
 

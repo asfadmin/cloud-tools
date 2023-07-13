@@ -221,7 +221,7 @@ class TaggedResourceCollector:
             entry
             for response in paginator.paginate(
                 TagFilters=tag_filters,
-                ResourceTypeFilters=self.type_filters
+                ResourceTypeFilters=self.type_filters,
             )
             for entry in response["ResourceTagMappingList"]
         ]
@@ -248,7 +248,7 @@ class TaggedResourceCollector:
                 cls.from_arn(
                     arn,
                     tags=entry.get("Tags", ()),
-                )
+                ),
             )
 
         return resources
@@ -270,7 +270,7 @@ class ApiGateway(Resource):
             cls(
                 name,
                 entry["id"],
-                tags=[dict(Key=k, Value=v) for k, v in entry.get("tags", {}).items()]
+                tags=[dict(Key=k, Value=v) for k, v in entry.get("tags", {}).items()],
             )
             for response in paginator.paginate()
             for entry in response.get("items", ())
@@ -318,8 +318,8 @@ class Bucket(Resource):
                     Objects=[
                         {"Key": entry["Key"], "VersionId": entry["VersionId"]}
                         for entry in response["Versions"]
-                    ]
-                )
+                    ],
+                ),
             )
 
         for response in object_paginator.paginate(Bucket=self.name):
@@ -332,8 +332,8 @@ class Bucket(Resource):
                     Objects=[
                         {"Key": entry["Key"]}
                         for entry in response["Contents"]
-                    ]
-                )
+                    ],
+                ),
             )
 
         client.delete_bucket(Bucket=self.name)
@@ -369,7 +369,7 @@ class CloudWatchAlarm(Resource):
         paginator = client.get_paginator("describe_alarms")
 
         kwargs = dict(
-            AlarmNamePrefix=name_matcher.prefix
+            AlarmNamePrefix=name_matcher.prefix,
         ) if name_matcher.prefix else {}
 
         return [
@@ -397,7 +397,7 @@ class CloudWatchDashboard(Resource):
         paginator = client.get_paginator("list_dashboards")
 
         kwargs = dict(
-            DashboardNamePrefix=name_matcher.prefix
+            DashboardNamePrefix=name_matcher.prefix,
         ) if name_matcher.prefix else {}
 
         return [
@@ -423,7 +423,7 @@ class CloudWatchEventRule(Resource):
         target_paginator = client.get_paginator("list_targets_by_rule")
 
         kwargs = dict(
-            NamePrefix=name_matcher.prefix
+            NamePrefix=name_matcher.prefix,
         ) if name_matcher.prefix else {}
 
         named_rules = [
@@ -461,7 +461,7 @@ class CloudWatchEventRule(Resource):
                 Ids=[
                     entry["Id"]
                     for entry in response["Targets"]
-                ]
+                ],
             )
 
         client.delete_rule(Name=self.name)
@@ -476,7 +476,7 @@ class CloudWatchLogGroup(Resource):
         paginator = client.get_paginator("describe_log_groups")
 
         kwargs = dict(
-            logGroupNamePattern=name_matcher.prefix
+            logGroupNamePattern=name_matcher.prefix,
         ) if name_matcher.prefix else {}
 
         return [
@@ -627,7 +627,7 @@ class IAMInstanceProfile(Resource):
             cls.from_arn(
                 Arn(entry["Arn"]),
                 [role["RoleName"] for role in entry["Roles"]],
-                tags=entry.get("Tags", ())
+                tags=entry.get("Tags", ()),
             )
             for response in paginator.paginate()
             for entry in response.get("InstanceProfiles", ())
@@ -640,7 +640,7 @@ class IAMInstanceProfile(Resource):
         for role in self.roles:
             client.remove_role_from_instance_profile(
                 InstanceProfileName=self.name,
-                RoleName=role
+                RoleName=role,
             )
 
         client.delete_instance_profile(InstanceProfileName=self.name)
@@ -659,7 +659,7 @@ class IAMPolicy(Resource):
                 name,
                 entry["PolicyId"],
                 arn=Arn(entry["Arn"]),
-                tags=entry.get("Tags", ())
+                tags=entry.get("Tags", ()),
             )
             for response in paginator.paginate(Scope="Local")
             for entry in response.get("Policies", ())
@@ -678,7 +678,7 @@ class IAMPolicy(Resource):
 
                 client.delete_policy_version(
                     PolicyArn=str(self.arn),
-                    VersionId=entry["VersionId"]
+                    VersionId=entry["VersionId"],
                 )
 
         client.delete_policy(PolicyArn=str(self.arn))
@@ -703,7 +703,7 @@ class IAMRole(Resource):
                 name,
                 entry["RoleId"],
                 arn=Arn(entry["Arn"]),
-                tags=entry.get("Tags", ())
+                tags=entry.get("Tags", ()),
             )
             for response in paginator.paginate()
             for entry in response.get("Roles", ())
@@ -719,14 +719,14 @@ class IAMRole(Resource):
             for entry in response["AttachedPolicies"]:
                 client.detach_role_policy(
                     RoleName=self.name,
-                    PolicyArn=entry["PolicyArn"]
+                    PolicyArn=entry["PolicyArn"],
                 )
 
         for response in inline_policy_paginator.paginate(RoleName=self.name):
             for policy in response["PolicyNames"]:
                 client.delete_role_policy(
                     RoleName=self.name,
-                    PolicyName=policy
+                    PolicyName=policy,
                 )
 
         client.delete_role(RoleName=self.name)
@@ -791,7 +791,7 @@ class LambdaLayerVersion(Resource):
         client = get_client("lambda")
         client.delete_layer_version(
             LayerName=self.name,
-            VersionNumber=int(self.id)
+            VersionNumber=int(self.id),
         )
 
     def get_display_name(self):
@@ -910,9 +910,9 @@ class SecurityGroup(Resource):
                 Filters=[
                     dict(
                         Name="tag:Deployment",
-                        Values=[name_matcher.prefix + "*"]
-                    )
-                ]
+                        Values=[name_matcher.prefix + "*"],
+                    ),
+                ],
             )
             for entry in response.get("SecurityGroups", ())
             if (
@@ -925,9 +925,9 @@ class SecurityGroup(Resource):
                 Filters=[
                     dict(
                         Name="group-name",
-                        Values=[name_matcher.prefix + "*"]
-                    )
-                ]
+                        Values=[name_matcher.prefix + "*"],
+                    ),
+                ],
             )
             for entry in response.get("SecurityGroups", ())
             if name_matcher.matches(entry["GroupName"])
@@ -945,11 +945,11 @@ class SecurityGroup(Resource):
                         tags=entry.get("TagSet", ()),
                     )
                     for response in eni_paginator.paginate(
-                        Filters=[dict(Name="group-id", Values=[entry["GroupId"]])]
+                        Filters=[dict(Name="group-id", Values=[entry["GroupId"]])],
                     )
                     for entry in response["NetworkInterfaces"]
                 ],
-                tags=entry.get("Tags", ())
+                tags=entry.get("Tags", ()),
             )
             for entry in itertools.chain(tagged_entries, named_entries)
         ]
@@ -973,7 +973,7 @@ class SNSSubscription(Resource):
         protocol=None,
         endpoint=None,
         arn=None,
-        tags=()
+        tags=(),
     ):
         super().__init__(name, id, arn=arn, tags=tags)
         self.topic_arn = topic_arn
@@ -989,7 +989,7 @@ class SNSSubscription(Resource):
             protocol=protocol,
             endpoint=endpoint,
             arn=arn,
-            tags=tags
+            tags=tags,
         )
 
     @classmethod
@@ -1002,7 +1002,7 @@ class SNSSubscription(Resource):
                 Arn(entry["SubscriptionArn"]),
                 topic_arn,
                 entry["Protocol"],
-                entry["Endpoint"]
+                entry["Endpoint"],
             )
             for response in paginator.paginate()
             for entry in response.get("Subscriptions", ())
@@ -1060,7 +1060,7 @@ class SQSQueue(Resource):
         paginator = client.get_paginator("list_queues")
 
         kwargs = dict(
-            QueueNamePrefix=name_matcher.prefix
+            QueueNamePrefix=name_matcher.prefix,
         ) if name_matcher.prefix else {}
 
         return [
@@ -1111,7 +1111,7 @@ class ResourceSet:
             log.debug(
                 "Updating already found [%s] %s",
                 resource.__class__.__name__,
-                resource.name
+                resource.name,
             )
             old = self._resources.pop(resource)
             resource.tags.update(old.tags)
@@ -1163,7 +1163,7 @@ class CumulusDestroyer:
 
     # Other ways to search for matching resources
     OTHER_COLLECTORS = [
-        TaggedResourceCollector
+        TaggedResourceCollector,
     ]
 
     _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
@@ -1196,8 +1196,8 @@ class CumulusDestroyer:
                 self._SORT_KEY.get(res.__class__, len(self._SORT_KEY)),
                 res.__class__.__name__,
                 res.tags.get("Deployment", ""),
-                res.get_display_name()
-            )
+                res.get_display_name(),
+            ),
         )
 
         if not resources:
@@ -1240,7 +1240,7 @@ class CumulusDestroyer:
             "Done destroying resources [%d succeeded, %d failed, %d skipped]",
             attempted - failures,
             failures,
-            total - attempted
+            total - attempted,
         )
 
     def gather(self):
@@ -1251,7 +1251,7 @@ class CumulusDestroyer:
                 for type_name, cls in Resource.TYPES.items()
                 if hasattr(cls, "gather")
                 if not self.type_filters or type_name in self.type_filters
-            )
+            ),
         ]
 
         return ResourceSet(
@@ -1369,7 +1369,7 @@ def main(args=None):
     parser = argparse.ArgumentParser(
         description="Clean up partially destroyed Cumulus stacks",
         epilog=HELP,
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("prefix", help="Stack prefix (e.g. asf-cumulus-dev)")
     parser.add_argument(
@@ -1377,7 +1377,7 @@ def main(args=None):
         help="Stack prefixes to ignore",
         nargs="*",
         default=(),
-        metavar="exclude"
+        metavar="exclude",
     )
     parser.add_argument(
         "--filter",
@@ -1385,7 +1385,7 @@ def main(args=None):
         nargs="*",
         default=(),
         choices=list(Resource.TYPES),
-        metavar="filter"
+        metavar="filter",
     )
     parser.add_argument("--profile", help="AWS profile")
     parser.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
@@ -1402,7 +1402,7 @@ def main(args=None):
         profile=args.profile,
         name_matcher=NameMatcher(
             args.prefix,
-            exclude=args.exclude
+            exclude=args.exclude,
         ),
         type_filters=args.filter,
         auto_confirm=args.yes,
