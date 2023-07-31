@@ -455,13 +455,16 @@ class CloudWatchEventRule(Resource):
         client = get_client("events")
         paginator = client.get_paginator("list_targets_by_rule")
 
-        for response in paginator.paginate(Rule=self.name):
+        target_ids = [
+            entry["Id"]
+            for response in paginator.paginate(Rule=self.name)
+            for entry in response["Targets"]
+        ]
+
+        if target_ids:
             client.remove_targets(
                 Rule=self.name,
-                Ids=[
-                    entry["Id"]
-                    for entry in response["Targets"]
-                ],
+                Ids=target_ids,
             )
 
         client.delete_rule(Name=self.name)
