@@ -7,7 +7,7 @@ from destroy_cumulus import (
     ElasticsearchDomain,
     NameMatcher,
     Resource,
-    SQSQueue
+    SQSQueue,
 )
 
 
