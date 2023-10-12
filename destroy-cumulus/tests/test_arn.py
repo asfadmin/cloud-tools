@@ -38,6 +38,19 @@ def test_arn_lambda_function():
 #
 
 
+def test_arn_s3_bucket_object():
+    arn = Arn("arn:aws:s3:::bucket-name/object-name")
+
+    assert arn.partition == "aws"
+    assert arn.service == "s3"
+    assert arn.region == ""
+    assert arn.account == ""
+    assert arn.type == "bucket-name"
+    assert arn.name == "object-name"
+    assert arn.id == "object-name"
+    assert arn.type_id == "s3:bucket-name"
+
+
 def test_arn_dynamodb_table():
     arn = Arn(
         "arn:aws:dynamodb:us-west-2:123456789012:"
