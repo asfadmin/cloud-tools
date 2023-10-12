@@ -1344,6 +1344,10 @@ class CumulusDestroyer:
         KMSKey,
     ]
 
+    DEFAULT_EXTRA_COLLECTORS = [
+        TaggedResourceCollector,
+    ]
+
     _SORT_KEY = {cls: i for i, cls in enumerate(RESOURCE_DESTRUCTION_ORDER)}
 
     def __init__(
@@ -1366,12 +1370,7 @@ class CumulusDestroyer:
 
     def destroy(self, resources=None):
         if resources is None:
-            # TODO(reweeden): Move timing debug inside self.gather()
-            start = time.perf_counter()
             resources = self.gather()
-            end = time.perf_counter()
-
-            log.debug("Total time gathering was %.1fs", end - start)
 
         resources = sorted(
             resources,
@@ -1426,23 +1425,32 @@ class CumulusDestroyer:
             total - attempted,
         )
 
-    def gather(self):
-        collectors = [
-            TaggedResourceCollector(type_filters=self.type_filters),
-            UnnamedIAMRoleCollector(type_filters=self.type_filters),
-            *(
-                cls
-                for type_name, cls in Resource.TYPES.items()
-                if hasattr(cls, "gather")
-                if not self.type_filters or type_name in self.type_filters
-            ),
-        ]
+    def gather(self, collectors=None):
+        start = time.perf_counter()
+        if collectors is None:
+            collectors = [
+                *(
+                    collector(type_filters=self.type_filters)
+                    for collector in self.DEFAULT_EXTRA_COLLECTORS
+                ),
+                *(
+                    cls
+                    for type_name, cls in Resource.TYPES.items()
+                    if hasattr(cls, "gather")
+                    if not self.type_filters or type_name in self.type_filters
+                ),
+            ]
 
-        return ResourceSet(
+        resource_set = ResourceSet(
             resource
             for collector in collectors
             for resource in self.gather_from(collector)
         )
+        end = time.perf_counter()
+
+        log.debug("Total time gathering was %.1fs", end - start)
+
+        return resource_set
 
     def gather_from(self, collector):
         if isinstance(collector, type):
@@ -1540,6 +1548,59 @@ class NameMatcher:
         )
 
 
+# Copied from the python3.9 implementation.
+# https://github.com/python/cpython/blob/300d3155af0cb2d0fdf3fabe2e34a0e6ec832cf0/Lib/argparse.py#L863-L901
+class BooleanOptionalAction(argparse.Action):
+    def __init__(
+        self,
+        option_strings,
+        dest,
+        default=None,
+        type=None,
+        choices=None,
+        required=False,
+        help=None,
+        metavar=None,
+    ):
+        _option_strings = []
+        for option_string in option_strings:
+            _option_strings.append(option_string)
+
+            if option_string.startswith("--"):
+                option_string = "--no-" + option_string[2:]
+                _option_strings.append(option_string)
+
+        if (
+            help is not None
+            and default is not None
+            and default is not argparse.SUPPRESS
+        ):
+            help += " (default: %(default)s)"
+
+        super().__init__(
+            option_strings=_option_strings,
+            dest=dest,
+            nargs=0,
+            default=default,
+            type=type,
+            choices=choices,
+            required=required,
+            help=help,
+            metavar=metavar,
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string in self.option_strings:
+            setattr(
+                namespace,
+                self.dest,
+                not option_string.startswith("--no-")
+            )
+
+    def format_usage(self):
+        return " | ".join(self.option_strings)
+
+
 def pluralize(word):
     if word[-2:] in ("ay", "ey", "oy"):
         return word + "s"
@@ -1579,6 +1640,25 @@ def main(args=None):
         choices=list(Resource.TYPES),
         metavar="filter",
     )
+    collection_group.add_argument(
+        "--collect-all",
+        "-a",
+        help="Enable all extra collectors",
+        action="store_true",
+        default=False
+    )
+    collection_group.add_argument(
+        "--collect-tagged",
+        help="Collect all resources with matching Deployment tag",
+        action=BooleanOptionalAction,
+        default=True
+    )
+    collection_group.add_argument(
+        "--collect-unnamed-roles",
+        help="Collect IAM roles named terraform* with matching policy resources",
+        action=BooleanOptionalAction,
+        default=False
+    )
 
     # Controling output
     output_group = parser.add_argument_group(title="output")
@@ -1604,8 +1684,26 @@ def main(args=None):
         auto_confirm=args.yes,
         display_tags=args.tags,
     )
+
+    collectors = []
+    if args.collect_all or args.collect_tagged:
+        collectors.append(
+            TaggedResourceCollector(type_filters=args.filter)
+        )
+    if args.collect_all or args.collect_unnamed_roles:
+        collectors.append(
+            UnnamedIAMRoleCollector(type_filters=args.filter)
+        )
+    collectors.extend(
+        cls
+        for type_name, cls in Resource.TYPES.items()
+        if hasattr(cls, "gather")
+        if not destroyer.type_filters or type_name in destroyer.type_filters
+    )
+
     try:
-        destroyer.destroy()
+        resources = destroyer.gather(collectors)
+        destroyer.destroy(resources)
     except (KeyboardInterrupt, EOFError):
         log.error("\nOperation cancelled")
 
