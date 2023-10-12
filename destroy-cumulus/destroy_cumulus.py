@@ -1558,25 +1558,34 @@ def main(args=None):
         epilog=HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("prefix", help="Stack prefix (e.g. asf-cumulus-dev)")
-    parser.add_argument(
+    # Controlling collection
+    collection_group = parser.add_argument_group(title="collection")
+    collection_group.add_argument("prefix", help="Stack prefix (e.g. asf-cumulus-dev)")
+    collection_group.add_argument(
         "--exclude",
         help="Stack prefixes to ignore",
         nargs="*",
         default=(),
         metavar="exclude",
     )
-    parser.add_argument(
+    collection_group.add_argument(
         "--filter",
-        help="Filter the type of resource to destroy (e.g. --filter s3:bucket)",
+        help=(
+            "Filter the type of resource to destroy "
+            f"(e.g. --filter {Bucket.TYPE_FILTER})"
+        ),
         nargs="*",
         default=(),
         choices=list(Resource.TYPES),
         metavar="filter",
     )
+
+    # Controling output
+    output_group = parser.add_argument_group(title="output")
+    output_group.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
+    output_group.add_argument("--tags", help="Display all resource tags", action="store_true")
+
     parser.add_argument("--profile", help="AWS profile")
-    parser.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
-    parser.add_argument("--tags", help="Display all resource tags", action="store_true")
     parser.add_argument("--yes", "-y", help="Auto confirm prompts", action="store_true", default=False)
 
     args = parser.parse_args(args=args)
