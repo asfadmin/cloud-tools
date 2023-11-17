@@ -1,0 +1,60 @@
+import json
+import logging
+from typing import List
+
+from test_cnm.tester.collector import TestCollector
+from test_cnm.tester.ingest_client import CnmIngestClient
+
+log = logging.getLogger(__name__)
+
+
+class TestExecutor:
+    def __init__(
+        self,
+        collector: TestCollector,
+        ingest_client: CnmIngestClient,
+    ):
+        self.collector = collector
+        self.ingest_client = ingest_client
+
+    def run(self, filters: List[str]):
+        # Collect
+        tests = self.collector.collect_tests(filters)
+
+        # Start
+        for test in tests.values():
+            log.info("Starting: %s/%s", test.collection, test.name)
+            test.cnm_s = self.ingest_client.submit_request(
+                test.collection,
+                test.name,
+                test.files
+            )
+
+        # Response
+        num_failed = 0
+        for name, cnm_r in self.ingest_client.iter_responses():
+            test = tests[name]
+            response = cnm_r.get("response", {})
+            status = response.get("status")
+            ok = _response_ok(cnm_r)
+
+            log.info("%s\t%s\t| %s/%s", ok, status, test.collection, test.name)
+
+            if not ok:
+                num_failed += 1
+                error = json.loads(response["errorMessage"])
+                log.error(error["errorMessage"])
+                log.error("".join(error.get("stackTrace", ())))
+
+        num_total = len(tests)
+        num_success = num_total - num_failed
+        log.info(
+            "Totals: %s Succeeded; %s Failed of %s tests",
+            num_success,
+            num_failed,
+            num_total,
+        )
+
+
+def _response_ok(cnm_r: dict) -> bool:
+    return cnm_r.get("response", {}).get("status") == "SUCCESS"
