@@ -1,0 +1,92 @@
+import argparse
+import os
+from pathlib import Path
+from typing import List, cast
+
+from test_cnm.checksums import Checksums
+from test_cnm.config import Config
+from test_cnm.uploader import Uploader
+
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+) -> argparse.ArgumentParser:
+    parser_upload = subparsers.add_parser(
+        "upload",
+        help="Upload test files with appropriate metadata",
+    )
+    parser_upload.add_argument(
+        "paths",
+        help="Path to file or directory",
+        nargs=argparse.ONE_OR_MORE,
+        type=Path,
+        metavar="path",
+    )
+    parser_upload.add_argument(
+        "--collection",
+        help=(
+            "Collection name of this product. If not set, the command will "
+            "attempt to guess the collection name from the file path."
+        ),
+    )
+    parser_upload.add_argument(
+        "--product",
+        help=(
+            "Product name of this product. If not set, the command will "
+            "attempt to guess the product name from the file path."
+        ),
+    )
+    parser_upload.add_argument(
+        "--recursive",
+        "-r",
+        help="Upload a directory recursively",
+        action="store_true",
+        default=False,
+    )
+    parser_upload.set_defaults(func=cmd_upload)
+
+    return parser_upload
+
+
+def cmd_upload(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    config: Config,
+):
+    recursive: bool = args.recursive
+
+    resolved_paths: List[Path] = []
+    for path in cast(List[Path], args.paths):
+        path = path.resolve()
+
+        if not path.exists():
+            parser.error(f"path '{path}' does not exist")
+
+        resolved_paths.append(path)
+
+    session = config.session()
+    checksums = Checksums(session, config.test_bucket)
+    uploader = Uploader(session, config.test_bucket, checksums)
+
+    checksums.load()
+    for path in resolved_paths:
+        if not recursive:
+            uploader.upload_file(
+                path,
+                collection=args.collection,
+                product=args.product
+            )
+        else:
+            for root, _, files in os.walk(path):
+                root_path = Path(root)
+                for file in files:
+                    if file == ".DS_Store":
+                        continue
+
+                    uploader.upload_file(
+                        root_path / file,
+                        collection=args.collection,
+                        product=args.product,
+                    )
+
+    checksums.save()

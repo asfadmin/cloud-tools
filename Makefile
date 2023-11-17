@@ -1,6 +1,7 @@
 PACKAGES := \
 	destroy-cumulus \
-	remotezip-cli
+	remotezip-cli \
+	test-cnm
 
 TOX_INIS := $(PACKAGES:%=%/tox.ini)
 
