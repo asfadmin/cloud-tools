@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "destroy-cumulus"
-version = "0.1.6"
+version = "0.1.7"
 description = ""
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"

@@ -3,6 +3,7 @@ from unittest import mock
 import moto
 import pytest
 from destroy_cumulus import (
+    Activity,
     CumulusDestroyer,
     ElasticsearchDomain,
     NameMatcher,
@@ -24,6 +25,7 @@ def mock_queues(get_client):
 def test_gather_all_empty_prefixs(monkeypatch):
     # Patch out unsupported types
     monkeypatch.setitem(Resource.TYPES, "es:domain", mock.create_autospec(ElasticsearchDomain))
+    monkeypatch.setitem(Resource.TYPES, "states:activity", mock.create_autospec(Activity))
     # Mock all is very slow. Using it as a decorator causes the slowness to
     # affect pytest collection time.
     with moto.mock_all():

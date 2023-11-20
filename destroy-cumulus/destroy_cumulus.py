@@ -258,6 +258,28 @@ class TaggedResourceCollector:
 #
 
 
+class Activity(Resource):
+    TYPE_FILTER = "states:activity"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher):
+        client = get_client("stepfunctions")
+        paginator = client.get_paginator("list_activities")
+
+        return [
+            cls.from_arn(
+                Arn(entry["activityArn"]),
+            )
+            for response in paginator.paginate()
+            for entry in response.get("activities", ())
+            if name_matcher.matches(entry["name"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("stepfunctions")
+        client.delete_activity(activityArn=str(self.arn))
+
+
 class ApiGateway(Resource):
     TYPE_FILTER = "apigateway:restapis"
 
@@ -1141,6 +1163,7 @@ class CumulusDestroyer:
         LambdaFunction,
         LambdaLayerVersion,
         StepFunction,
+        Activity,
         EventSourceMapping,
         CloudWatchDashboard,
         CloudWatchAlarm,
