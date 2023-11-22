@@ -150,3 +150,19 @@ def test_arn_cloudwatch_log_stream():
     assert arn.name == "/aws/rds/cluster/cluster-name/postgresql"
     assert arn.id == "*"
     assert arn.type_id == "logs:log-group"
+
+
+def test_arn_ecs_service():
+    arn = Arn(
+        "arn:aws:ecs:us-west-2:123456789012:service/cluster-name/service-name"
+    )
+
+    assert arn.partition == "aws"
+    assert arn.service == "ecs"
+    assert arn.region == "us-west-2"
+    assert arn.account == "123456789012"
+    assert arn.type == "service"
+    # TODO(reweeden): Looks wrong
+    assert arn.name == "cluster-name"
+    assert arn.id == "service-name"
+    assert arn.type_id == "ecs:service"

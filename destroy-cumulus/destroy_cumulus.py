@@ -547,13 +547,32 @@ class DynamoDBTable(Resource):
 class ECSCluster(Resource):
     TYPE_FILTER = "ecs:cluster"
 
+    def __init__(self, name, id, services=(), arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.services = sorted(
+            services,
+            key=lambda res: (res.name, res.id),
+        )
+
     @classmethod
     def gather(cls, get_client, name_matcher):
         client = get_client("ecs")
         paginator = client.get_paginator("list_clusters")
+        services_paginator = client.get_paginator("list_services")
 
         return [
-            cls.from_arn(arn)
+            cls(
+                name=arn.name,
+                id=arn.id,
+                services=[
+                    ECSService.from_arn(Arn(service_arn_))
+                    for response in services_paginator.paginate(
+                        cluster=arn_,
+                    )
+                    for service_arn_ in response["serviceArns"]
+                ],
+                arn=arn,
+            )
             for response in paginator.paginate()
             for arn_ in response["clusterArns"]
             if name_matcher.matches((arn := Arn(arn_)).name)
@@ -562,6 +581,36 @@ class ECSCluster(Resource):
     def delete(self, get_client):
         client = get_client("ecs")
         client.delete_cluster(cluster=self.name)
+
+    def get_dependencies(self):
+        return self.services
+
+
+class ECSService(Resource):
+    TYPE_FILTER = "ecs:service"
+
+    def __init__(self, name, id, cluster, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.cluster = cluster
+
+    @classmethod
+    def from_arn(cls, arn, tags=()):
+        # TODO(reweeden): The Arn parsing isn't quite right
+        cluster = arn.name
+        service = arn.id
+        return cls(service, service, cluster, arn=arn, tags=tags)
+
+    def delete(self, get_client):
+        client = get_client("ecs")
+        client.update_service(
+            cluster=self.cluster,
+            service=self.name,
+            desiredCount=0,
+        )
+        client.delete_service(
+            cluster=self.cluster,
+            service=self.name,
+        )
 
 
 class ECSTaskDefinition(Resource):
