@@ -26,8 +26,9 @@ class TestExecutor:
             log.info("Starting: %s/%s", test.collection, test.name)
             test.cnm_s = self.ingest_client.submit_request(
                 test.collection,
+                test.data_version,
                 test.name,
-                test.files
+                test.files,
             )
 
         # Response

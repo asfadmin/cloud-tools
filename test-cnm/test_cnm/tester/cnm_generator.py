@@ -14,7 +14,7 @@ DATA_TYPE_MAP = {
     ".xml": "data",
 }
 
-CnmSGeneratorType = Callable[[str, str, list], dict]
+CnmSGeneratorType = Callable[[str, str, str, list], dict]
 
 
 class CnmSGenerator:
@@ -31,6 +31,7 @@ class CnmSGenerator:
     def __call__(
         self,
         collection: str,
+        data_version: str,
         name: str,
         files: list,
     ) -> dict:
@@ -41,7 +42,7 @@ class CnmSGenerator:
             "submissionTime": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "product": {
                 "name": name,
-                "dataVersion": "1.0",
+                "dataVersion": data_version,
                 "files": [
                     {
                         "name": Path(file["Key"]).name,

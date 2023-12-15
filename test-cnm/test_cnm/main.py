@@ -66,6 +66,10 @@ def get_parser():
         help="Name of the CNM-S provider",
     )
     parser.add_argument(
+        "--data-version",
+        help="Data version to use in the CNM-S",
+    )
+    parser.add_argument(
         "--trace",
         help="Value for the CNM-S trace element",
     )

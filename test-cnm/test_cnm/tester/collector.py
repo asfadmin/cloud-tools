@@ -19,6 +19,7 @@ class FileDict(TypedDict):
 @dataclass
 class TestInfo:
     collection: str
+    data_version: str
     name: str
     files: List[FileDict]
     cnm_s: Optional[dict] = None
@@ -30,9 +31,10 @@ class TestCollector(Protocol):
 
 
 class BucketTestCollector:
-    def __init__(self, session: boto3.Session, bucket: str):
+    def __init__(self, session: boto3.Session, bucket: str, data_version: str):
         self.session = session
         self.test_bucket = bucket
+        self.data_version = data_version
 
     def collect_tests(self, filters: List[str]) -> Dict[str, TestInfo]:
         client = self.session.client("s3")
@@ -61,6 +63,7 @@ class BucketTestCollector:
         return {
             name: TestInfo(
                 collection,
+                self.data_version,
                 name,
                 files,
             )

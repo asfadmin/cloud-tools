@@ -23,8 +23,14 @@ class CnmIngestClient:
         self.client = session.client("sqs")
         self._requests = {}
 
-    def submit_request(self, collection: str, name: str, files: list):
-        cnm_s = self.make_cnm_s(collection, name, files)
+    def submit_request(
+        self,
+        collection: str,
+        data_version: str,
+        name: str,
+        files: list
+    ):
+        cnm_s = self.make_cnm_s(collection, data_version, name, files)
         self._requests[(name, cnm_s["submissionTime"])] = True
 
         message_body = json.dumps(cnm_s, indent=2)

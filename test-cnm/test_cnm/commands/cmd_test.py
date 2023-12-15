@@ -49,7 +49,11 @@ def cmd_test(
     checksums = Checksums(session, config.test_bucket)
     checksums.load()
 
-    collector = BucketTestCollector(session, config.test_bucket)
+    collector = BucketTestCollector(
+        session,
+        config.test_bucket,
+        config.data_version,
+    )
     ingest_client = CnmIngestClient(
         session=session,
         make_cnm_s=CnmSGenerator(

@@ -35,7 +35,11 @@ def cmd_list(
 
     session = config.session()
 
-    collector = BucketTestCollector(session, config.test_bucket)
+    collector = BucketTestCollector(
+        session,
+        config.test_bucket,
+        config.data_version,
+    )
     tests = collector.collect_tests(filters)
 
     tests_by_collection = defaultdict(list)
