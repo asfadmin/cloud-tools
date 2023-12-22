@@ -1023,6 +1023,29 @@ class RDSCluster(Resource):
         client.delete_db_cluster(DBClusterIdentifier=self.id, SkipFinalSnapshot=True)
 
 
+class RDSClusterParameterGroup(Resource):
+    TYPE_FILTER = "rds:cluster-pg"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher):
+        client = get_client("rds")
+        paginator = client.get_paginator("describe_db_cluster_parameter_groups")
+
+        return [
+            cls.from_arn(Arn(entry["DBClusterParameterGroupArn"]))
+            for response in paginator.paginate(
+                # NOTE(12/22/23): Filters are not supported yet
+                # Filters=[dict(Name="tag:Deployment", Values=[name_matcher.prefix + "*"])]
+            )
+            for entry in response.get("DBClusterParameterGroups", ())
+            if name_matcher.matches(entry["DBClusterParameterGroupName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("rds")
+        client.delete_db_cluster_parameter_group(DBClusterParameterGroupName=self.name)
+
+
 class RDSSubnetGroup(Resource):
     TYPE_FILTER = "rds:subgrp"
 
@@ -1333,6 +1356,7 @@ class CumulusDestroyer:
         ECSCluster,
         ECSTaskDefinition,
         RDSCluster,
+        RDSClusterParameterGroup,
         RDSSubnetGroup,
         SecurityGroup,
         CloudWatchLogGroup,
