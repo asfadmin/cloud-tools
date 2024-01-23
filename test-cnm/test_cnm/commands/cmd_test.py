@@ -1,5 +1,4 @@
 import argparse
-import re
 
 from test_cnm.checksums import Checksums
 from test_cnm.config import Config
@@ -7,16 +6,6 @@ from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
 from test_cnm.tester.executor import TestExecutor
 from test_cnm.tester.ingest_client import CnmIngestClient
-
-STACK_NAME_PATTERN = re.compile(r"^[\w_-]+-cumulus-(?P<maturity>\w+)")
-
-
-def _get_maturity(stack_name):
-    m = STACK_NAME_PATTERN.match(stack_name)
-    if m:
-        return m.group("maturity")
-
-    return "dev"
 
 
 def add_parser(
