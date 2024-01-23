@@ -1,6 +1,6 @@
 """
 A script for simulating a CNM invocation using sample products stored in a
-testing bucket. Any errors returned in the CNM-R will be pinted to the
+testing bucket. Any errors returned in the CNM-R will be printed to the
 console along with a summary of the number of errors encountered.
 
 Run with --help for more information.
