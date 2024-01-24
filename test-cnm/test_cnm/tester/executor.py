@@ -64,5 +64,20 @@ class TestExecutor:
         )
 
 
+class LoadTestExtractor(TestExecutor):
+    def run(self, filters: List[str]):
+        tests = self.collector.collect_tests(filters)
+
+        # TODO: (McKade) Refactor
+        for test in tests.values():
+            log.info("Starting: %s/%s", test.collection, test.name)
+            test.cnm_s = self.ingest_client.submit_request(
+                test.collection,
+                test.data_version,
+                test.name,
+                test.files,
+            )
+
+
 def _response_ok(cnm_r: dict) -> bool:
     return cnm_r.get("response", {}).get("status") == "SUCCESS"
