@@ -1,11 +1,15 @@
 import argparse
+import logging
+import time
 
 from test_cnm.checksums import Checksums
 from test_cnm.config import Config
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
-from test_cnm.tester.executor import TestExecutor
+from test_cnm.tester.executor import LoadTestExtractor
 from test_cnm.tester.ingest_client import CnmIngestClient
+
+log = logging.getLogger(__name__)
 
 
 def add_parser(
@@ -16,8 +20,8 @@ def add_parser(
         help="Run a load test on the CNM ingest system",
     )
     parser_load_test.add_argument(
-        "--number-of-ingests",  # TODO: (McKade) Update this to be more clear
-        help="Number of times to run 1 of each collection",
+        "--number-of-ingests",
+        help="Number of times to run 1 of each product in a bucket",
         type=int,
         default=5,
     )
@@ -27,9 +31,46 @@ def add_parser(
         nargs="*",
         default=[],
     )
+    parser_load_test.add_argument(
+        "--duration",
+        help="Duration of the load test in seconds",
+        default=60*5,
+        type=int,
+    )
     parser_load_test.set_defaults(func=cmd_load_test)
 
     return parser_load_test
+
+
+def run_ingest(
+        args: argparse.Namespace,
+        config: Config
+):
+    filters = args.filter
+
+    session = config.session()
+
+    checksums = Checksums(session, config.test_bucket)
+    checksums.load()
+
+    collector = BucketTestCollector(
+        session,
+        config.test_bucket,
+        config.data_version,
+    )
+    ingest_client = CnmIngestClient(
+        session=session,
+        make_cnm_s=CnmSGenerator(
+            provider=args.provider or "ASF-TESTCNM",
+            trace=config.trace,
+            checksums=checksums,
+        ),
+        start_queue=config.cnm_ingest_queue_name(),
+        response_queue=config.cnm_response_queue_name(),
+    )
+    executor = LoadTestExtractor(collector, ingest_client)
+
+    executor.run(filters)
 
 
 def cmd_load_test(
@@ -37,34 +78,11 @@ def cmd_load_test(
     args: argparse.Namespace,
     config: Config
 ):
-    for i in range(args.number_of_ingests):
-        # TODO: (McKade) Clean up this print statement
-        print(f"Running ingest {i + 1} of {args.number_of_ingests}")
+    ingest_rate = args.duration / args.number_of_ingests
 
-        # TODO: (McKade) Update how this is done
-        filters = args.filter
+    for ingest in range(args.number_of_ingests):
+        log.info("Running ingest %d of %d", ingest + 1, args.number_of_ingests)
+        run_ingest(args, config)
 
-        session = config.session()
-
-        checksums = Checksums(session, config.test_bucket)
-        checksums.load()
-
-        collector = BucketTestCollector(
-            session,
-            config.test_bucket,
-            config.data_version,
-        )
-        ingest_client = CnmIngestClient(
-            session=session,
-            make_cnm_s=CnmSGenerator(
-                provider=args.provider or "ASF-TESTCNM",
-                trace=config.trace,
-                checksums=checksums,
-            ),
-            start_queue=config.cnm_ingest_queue_name(),
-            response_queue=config.cnm_response_queue_name(),
-        )
-        executor = TestExecutor(collector, ingest_client)
-
-        executor.run(filters)
-
+        log.info("Next ingest in %d seconds", ingest_rate)
+        time.sleep(ingest_rate)
