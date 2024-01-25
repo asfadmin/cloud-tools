@@ -17,11 +17,7 @@ class TestExecutor:
         self.collector = collector
         self.ingest_client = ingest_client
 
-    def run(self, filters: List[str]):
-        # Collect
-        tests = self.collector.collect_tests(filters)
-
-        # Start
+    def send_cnm(self, tests):
         for test in tests.values():
             log.info("Starting: %s/%s", test.collection, test.name)
             test.cnm_s = self.ingest_client.submit_request(
@@ -30,6 +26,13 @@ class TestExecutor:
                 test.name,
                 test.files,
             )
+
+    def run(self, filters: List[str]):
+        # Collect
+        tests = self.collector.collect_tests(filters)
+
+        # Start
+        self.send_cnm(tests)
 
         # Response
         num_failed = 0
@@ -68,15 +71,8 @@ class LoadTestExtractor(TestExecutor):
     def run(self, filters: List[str]):
         tests = self.collector.collect_tests(filters)
 
-        # TODO: (McKade) Refactor
-        for test in tests.values():
-            log.info("Starting: %s/%s", test.collection, test.name)
-            test.cnm_s = self.ingest_client.submit_request(
-                test.collection,
-                test.data_version,
-                test.name,
-                test.files,
-            )
+        # Start
+        self.send_cnm(tests)
 
 
 def _response_ok(cnm_r: dict) -> bool:
