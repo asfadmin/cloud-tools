@@ -94,6 +94,7 @@ class Checksums:
             self.checksums[key] = {}
 
         self.checksums[key]["checksum"] = checksum
+        self.checksums[key]["checksumType"] = "md5"
 
 
 class ChecksumReaderProxy:
