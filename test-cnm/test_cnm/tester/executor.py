@@ -1,8 +1,8 @@
 import json
 import logging
-from typing import List
+from typing import Dict, List
 
-from test_cnm.tester.collector import TestCollector
+from test_cnm.tester.collector import TestCollector, TestInfo
 from test_cnm.tester.ingest_client import CnmIngestClient
 
 log = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class TestExecutor:
         self.collector = collector
         self.ingest_client = ingest_client
 
-    def send_cnm(self, tests):
+    def send_cnm(self, tests: Dict[str, TestInfo]):
         for test in tests.values():
             log.info("Starting: %s/%s", test.collection, test.name)
             test.cnm_s = self.ingest_client.submit_request(

@@ -20,12 +20,6 @@ def add_parser(
         help="Run a load test on the CNM ingest system",
     )
     parser_load_test.add_argument(
-        "--number-of-ingests",
-        help="Number of times to run 1 of each product in a bucket",
-        type=int,
-        default=5,
-    )
-    parser_load_test.add_argument(
         "filter",
         help="Run tests matching this prefix. Multiple filters are or'd together",
         nargs="*",
@@ -34,8 +28,14 @@ def add_parser(
     parser_load_test.add_argument(
         "--duration",
         help="Duration of the load test in seconds",
-        default=60*5,
         type=int,
+        default=60*5,
+    )
+    parser_load_test.add_argument(
+        "--number-of-ingests",
+        help="Number of times to run 1 of each product in a bucket",
+        type=int,
+        default=5,
     )
     parser_load_test.set_defaults(func=cmd_load_test)
 
@@ -43,8 +43,8 @@ def add_parser(
 
 
 def run_ingest(
-        args: argparse.Namespace,
-        config: Config
+    args: argparse.Namespace,
+    config: Config,
 ):
     filters = args.filter
     session = config.session()
@@ -75,7 +75,7 @@ def run_ingest(
 def cmd_load_test(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config
+    config: Config,
 ):
     ingest_rate = args.duration / args.number_of_ingests
 
