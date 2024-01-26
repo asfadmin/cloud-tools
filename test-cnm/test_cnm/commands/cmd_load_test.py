@@ -6,7 +6,7 @@ from test_cnm.checksums import Checksums
 from test_cnm.config import Config
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
-from test_cnm.tester.executor import LoadTestExtractor
+from test_cnm.tester.executor import LoadTestExecutor
 from test_cnm.tester.ingest_client import CnmIngestClient
 
 log = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def run_ingest(
         start_queue=config.cnm_ingest_queue_name(),
         response_queue=config.cnm_response_queue_name(),
     )
-    executor = LoadTestExtractor(collector, ingest_client)
+    executor = LoadTestExecutor(collector, ingest_client)
 
     executor.run(filters)
 

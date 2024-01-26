@@ -67,7 +67,7 @@ class TestExecutor:
         )
 
 
-class LoadTestExtractor(TestExecutor):
+class LoadTestExecutor(TestExecutor):
     def run(self, filters: List[str]):
         tests = self.collector.collect_tests(filters)
 
