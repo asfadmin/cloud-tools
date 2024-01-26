@@ -47,7 +47,6 @@ def run_ingest(
         config: Config
 ):
     filters = args.filter
-
     session = config.session()
 
     checksums = Checksums(session, config.test_bucket)
@@ -84,5 +83,6 @@ def cmd_load_test(
         log.info("Running ingest %d of %d", ingest + 1, args.number_of_ingests)
         run_ingest(args, config)
 
-        log.info("Next ingest in %d seconds", ingest_rate)
-        time.sleep(ingest_rate)
+        if ingest != args.number_of_ingests - 1:
+            log.info("Next ingest in %d seconds", ingest_rate)
+            time.sleep(ingest_rate)
