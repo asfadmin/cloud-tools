@@ -17,22 +17,12 @@ class TestExecutor:
         self.collector = collector
         self.ingest_client = ingest_client
 
-    def send_cnm(self, tests: Dict[str, TestInfo]):
-        for test in tests.values():
-            log.info("Starting: %s/%s", test.collection, test.name)
-            test.cnm_s = self.ingest_client.submit_request(
-                test.collection,
-                test.data_version,
-                test.name,
-                test.files,
-            )
-
     def run(self, filters: List[str]):
         # Collect
         tests = self.collector.collect_tests(filters)
 
         # Start
-        self.send_cnm(tests)
+        send_cnm(self.ingest_client, tests)
 
         # Response
         num_failed = 0
@@ -67,12 +57,15 @@ class TestExecutor:
         )
 
 
-class LoadTestExecutor(TestExecutor):
-    def run(self, filters: List[str]):
-        tests = self.collector.collect_tests(filters)
-
-        # Start
-        self.send_cnm(tests)
+def send_cnm(ingest_client, tests: Dict[str, TestInfo]):
+    for test in tests.values():
+        log.info("Starting: %s/%s", test.collection, test.name)
+        test.cnm_s = ingest_client.submit_request(
+            test.collection,
+            test.data_version,
+            test.name,
+            test.files,
+        )
 
 
 def _response_ok(cnm_r: dict) -> bool:
