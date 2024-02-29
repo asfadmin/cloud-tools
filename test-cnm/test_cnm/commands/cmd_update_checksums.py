@@ -1,6 +1,8 @@
 import argparse
 import hashlib
+import json
 import logging
+from pathlib import Path
 from typing import List
 
 from test_cnm.checksums import CHECKSUM_PATTERN, Checksums, ChecksumWriter
@@ -14,7 +16,18 @@ def add_parser(
 ) -> argparse.ArgumentParser:
     parser_update_checksums = subparsers.add_parser(
         "update-checksums",
-        help="Update checksums file by downloading products from the bucket",
+        help=(
+            "Update checksums file for existing products. Checksums can be "
+            "parsed from a CNM message or calculated by downloading the file."
+        ),
+    )
+    parser_update_checksums.add_argument(
+        "--cnm-file",
+        help=(
+            "Path to a JSON file containing one or more CNM messages to read "
+            "checksum values from"
+        ),
+        type=Path,
     )
     parser_update_checksums.add_argument(
         "prefix",
@@ -36,6 +49,11 @@ def cmd_update_checksums(
 
     session = config.session()
 
+    cnm_file = None
+    if args.cnm_file:
+        with open(args.cnm_file) as f:
+            cnm_file = json.load(f)
+
     checksums = Checksums(session, config.test_bucket)
     checksums.load()
 
@@ -52,15 +70,7 @@ def cmd_update_checksums(
             ):
                 continue
 
-            log.info("Computing checksum for s3://%s/%s", bucket, key)
-
-            md5 = hashlib.md5()
-            client.download_fileobj(
-                Fileobj=ChecksumWriter(md5),
-                Bucket=bucket,
-                Key=key,
-            )
-            md5sum = md5.hexdigest()
+            md5sum = get_md5sum(client, cnm_file, bucket, key)
             old_md5sum = "..."
 
             if key in checksums:
@@ -88,3 +98,60 @@ def cmd_update_checksums(
             checksums[key] = md5sum
 
     checksums.save()
+
+
+def get_md5sum(client, cnm_file, bucket: str, key: str):
+    if cnm_file:
+        file_obj = _find_matching_cnm_file_obj(cnm_file, key)
+        if file_obj and "checksum" in file_obj:
+            checksum_type = file_obj.get("checksumType")
+            checksum = file_obj["checksum"]
+
+            if checksum_type and checksum_type != "md5":
+                log.debug(
+                    "Skipping checksum %s for s3://%s/%s because it has type %s",
+                    checksum,
+                    bucket,
+                    key,
+                    checksum_type,
+                )
+            else:
+                log.info(
+                    "Using checksum from CNM file for s3://%s/%s",
+                    bucket,
+                    key,
+                )
+                return checksum
+
+    log.info("Computing checksum for s3://%s/%s", bucket, key)
+
+    md5 = hashlib.md5()
+    client.download_fileobj(
+        Fileobj=ChecksumWriter(md5),
+        Bucket=bucket,
+        Key=key,
+    )
+    return md5.hexdigest()
+
+
+def _find_matching_cnm_file_obj(cnm_file, key: str):
+    if isinstance(cnm_file, dict) and "files" in cnm_file:
+        files = cnm_file["files"]
+        if isinstance(files, list):
+            for file in files:
+                name = file.get("name")
+                if name and key.endswith(name):
+                    return file
+
+    if isinstance(cnm_file, dict):
+        for obj in cnm_file.values():
+            file = _find_matching_cnm_file_obj(obj, key)
+            if file:
+                return file
+    elif isinstance(cnm_file, list):
+        for obj in cnm_file:
+            file = _find_matching_cnm_file_obj(obj, key)
+            if file:
+                return file
+
+    return None
