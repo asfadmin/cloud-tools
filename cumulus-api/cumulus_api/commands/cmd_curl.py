@@ -111,11 +111,11 @@ def cmd_curl(args: argparse.Namespace):
         request_context = request.payload["requestContext"]
         protocol = request_context["protocol"]
         request_id = request_context["requestId"]
-        print(f"AWS Request Id: {request_id}")
-        print(f"{protocol} {status.value} {status.phrase}")
+        log.info("AWS Request Id: %s", request_id)
+        log.info("%s %s %s", protocol, status.value, status.phrase)
         for k, v in response["headers"].items():
-            print(f"{k}: {v}")
-        print()
+            log.info("%s: %s", k, v)
+        log.info("")
 
     if args.pretty:
         content_type = response["headers"].get("content-type")
@@ -124,7 +124,8 @@ def cmd_curl(args: argparse.Namespace):
                 body = pretty_print_json(body)
         except Exception as e:
             log.warning("Could not pretty print malformed %s: %s", content_type, e)
-    print(body)
+
+    log.info(body)
 
     if status_code >= 400:
         sys.exit(-1)
