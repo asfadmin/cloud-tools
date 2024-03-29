@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import boto3
-from cumulus_api.request import ApiRequest
+from cumulus_api.request import ApiClient
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +40,8 @@ def deploy_pcrs(args: argparse.Namespace):
     caller_identity = session.client("sts").get_caller_identity()
     function_name = f"{args.deploy_name}-cumulus-{args.maturity}-{args.lambda_name}"
 
+    api_client = ApiClient(client, function_name)
+
     variables = {
         "AWS_REGION": session.region_name,
         "AWS_ACCOUNT_ID": caller_identity.get("Account"),
@@ -65,38 +67,32 @@ def deploy_pcrs(args: argparse.Namespace):
 
         log.info("deploying %s from %s", object_path, path)
 
-        response = ApiRequest(
-            client,
-            function_name=function_name,
-            path=object_path,
+        response_payload = api_client.request(
             method="GET",
-        ).invoke()
+            path=object_path,
+        ).json()
 
-        if http.HTTPStatus(response["statusCode"]) == http.HTTPStatus.OK:
+        if http.HTTPStatus(response_payload["statusCode"]) == http.HTTPStatus.OK:
             # Need to perform an update
             log.info("%s already exists, updating...", object_path)
-            response = ApiRequest(
-                client,
-                function_name=function_name,
+            response_payload = api_client.request(
+                method="PUT",
                 path=object_path,
                 body=json.dumps(obj),
-                method="PUT",
                 headers={"Content-Type": "application/json"},
-            ).invoke()
+            ).json()
         else:
-            response = ApiRequest(
-                client,
-                function_name=function_name,
+            response_payload = api_client.request(
+                method="POST",
                 path=f"/{object_type}",
                 body=json.dumps(obj),
-                method="POST",
                 headers={"Content-Type": "application/json"},
-            ).invoke()
+            ).json()
 
-        status = http.HTTPStatus(response["statusCode"])
+        status = http.HTTPStatus(response_payload["statusCode"])
         log.info("API response %s %s", status.value, status.phrase)
         if status != http.HTTPStatus.OK:
-            log.info("%s", response["body"])
+            log.info("%s", response_payload["body"])
 
 
 def discover_pcrs(path: Path):

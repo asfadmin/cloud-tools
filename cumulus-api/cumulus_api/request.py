@@ -9,19 +9,56 @@ log = logging.getLogger(__name__)
 
 
 @dataclass
-class ApiRequest:
+class ApiClient:
     client: Any
     function_name: str
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        body: str = "",
+        headers: dict = {},
+        params: dict = {},
+    ):
+        request = ApiRequest(
+            path=path,
+            body=body,
+            method=method,
+            headers=headers,
+            params=params,
+        )
+        payload = json.dumps(request.payload)
+
+        log.debug(
+            "Invoking function %s with payload\n%s",
+            self.function_name,
+            payload,
+        )
+
+        response = self.client.invoke(
+            FunctionName=self.function_name,
+            InvocationType="RequestResponse",
+            Payload=payload,
+        )
+        return ApiResponse(
+            request=request,
+            lambda_response=response,
+        )
+
+
+@dataclass
+class ApiRequest:
     path: str
     body: str = ""
     method: str = "GET"
     headers: dict = field(default_factory=dict)
     params: dict = field(default_factory=dict)
-    payload: dict = None
+    payload: dict = field(init=False)
 
-    def get_api_gateway_payload(self) -> dict:
+    def __post_init__(self):
         now = datetime.now(timezone.utc)
-        return {
+        self.payload = {
             "body": self.body,
             "headers": {
                 "Host": "cumulus.app",
@@ -54,19 +91,11 @@ class ApiRequest:
             "stageVariables": {},
         }
 
-    def invoke(self):
-        self.payload = self.get_api_gateway_payload()
-        payload = json.dumps(self.payload)
 
-        log.debug(
-            "Invoking function %s with payload\n%s",
-            self.function_name,
-            payload,
-        )
+@dataclass
+class ApiResponse:
+    request: ApiRequest
+    lambda_response: dict
 
-        response = self.client.invoke(
-            FunctionName=self.function_name,
-            InvocationType="RequestResponse",
-            Payload=payload,
-        )
-        return json.load(response["Payload"])
+    def json(self):
+        return json.load(self.lambda_response["Payload"])

@@ -7,7 +7,7 @@ import urllib.parse
 from typing import Tuple
 
 import boto3
-from cumulus_api.request import ApiRequest
+from cumulus_api.request import ApiClient
 
 log = logging.getLogger(__name__)
 
@@ -91,39 +91,42 @@ def cmd_curl(args: argparse.Namespace):
     else:
         function_name = f"{args.deploy_name}-cumulus-{args.maturity}-{args.lambda_name}"
 
-    request = ApiRequest(
-        client,
-        function_name=function_name,
+    api_client = ApiClient(client, function_name)
+
+    response = api_client.request(
         path=args.url.path,
         body=args.data,
         params=args.url.params,
         method=args.method or ("POST" if args.data else "GET"),
         headers={k: v for k, v in args.headers},
     )
+    response_payload = response.json()
 
-    response = request.invoke()
-
-    body = response["body"]
-    status_code = response["statusCode"]
+    body = response_payload["body"]
+    status_code = response_payload["statusCode"]
 
     if args.include:
         status = http.HTTPStatus(status_code)
-        request_context = request.payload["requestContext"]
+        request_context = response.request.payload["requestContext"]
         protocol = request_context["protocol"]
         request_id = request_context["requestId"]
         log.info("AWS Request Id: %s", request_id)
         log.info("%s %s %s", protocol, status.value, status.phrase)
-        for k, v in response["headers"].items():
+        for k, v in response_payload["headers"].items():
             log.info("%s: %s", k, v)
         log.info("")
 
     if args.pretty:
-        content_type = response["headers"].get("content-type")
+        content_type = response_payload["headers"].get("content-type")
         try:
             if content_type.startswith("application/json"):
                 body = pretty_print_json(body)
         except Exception as e:
-            log.warning("Could not pretty print malformed %s: %s", content_type, e)
+            log.warning(
+                "Could not pretty print malformed %s: %s",
+                content_type,
+                e,
+            )
 
     log.info(body)
 
