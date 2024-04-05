@@ -1,50 +1,12 @@
 import json
 import logging
+import urllib.parse
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Generator
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class ApiClient:
-    client: Any
-    function_name: str
-
-    def request(
-        self,
-        method: str,
-        path: str,
-        body: str = "",
-        headers: dict = {},
-        params: dict = {},
-    ):
-        request = ApiRequest(
-            path=path,
-            body=body,
-            method=method,
-            headers=headers,
-            params=params,
-        )
-        payload = json.dumps(request.payload)
-
-        log.debug(
-            "Invoking function %s with payload\n%s",
-            self.function_name,
-            payload,
-        )
-
-        response = self.client.invoke(
-            FunctionName=self.function_name,
-            InvocationType="RequestResponse",
-            Payload=payload,
-        )
-        return ApiResponse(
-            request=request,
-            lambda_response=response,
-        )
 
 
 @dataclass
@@ -97,5 +59,95 @@ class ApiResponse:
     request: ApiRequest
     lambda_response: dict
 
+    _json: dict = None
+
     def json(self):
-        return json.load(self.lambda_response["Payload"])
+        if self._json is None:
+            self._json = json.load(self.lambda_response["Payload"])
+
+        return self._json
+
+
+@dataclass
+class ApiClient:
+    client: Any
+    function_name: str
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        body: str = "",
+        headers: dict = {},
+        params: dict = {},
+    ) -> ApiResponse:
+        request = ApiRequest(
+            path=path,
+            body=body,
+            method=method,
+            headers=headers,
+            params=params,
+        )
+        payload = json.dumps(request.payload)
+
+        log.debug(
+            "Invoking function %s with payload\n%s",
+            self.function_name,
+            payload,
+        )
+
+        response = self.client.invoke(
+            FunctionName=self.function_name,
+            InvocationType="RequestResponse",
+            Payload=payload,
+        )
+
+        log.debug(
+            "Function %s responded with payload\n%s",
+            self.function_name,
+            response,
+        )
+        return ApiResponse(
+            request=request,
+            lambda_response=response,
+        )
+
+    def paginate(
+        self,
+        method: str,
+        path: str,
+        body: str = "",
+        headers: dict = {},
+        params: dict = {},
+    ) -> Generator[ApiResponse, None, None]:
+        response = self.request(
+            method=method,
+            path=path,
+            body=body,
+            headers=headers,
+            params=params,
+        )
+        while True:
+            yield response
+
+            payload = response.json()
+            if payload["statusCode"] != 200:
+                return
+
+            response_body = json.loads(payload["body"])
+            if not response_body.get("results", ()):
+                return
+            search_context = urllib.parse.unquote(
+                response_body["meta"]["searchContext"],
+            )
+
+            response = self.request(
+                method=method,
+                path=path,
+                body=body,
+                headers=headers,
+                params={
+                    **params,
+                    "searchContext": search_context,
+                },
+            )
