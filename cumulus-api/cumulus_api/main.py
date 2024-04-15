@@ -5,6 +5,11 @@ from typing import List, Optional
 
 from cumulus_api.commands import cmd_curl, cmd_deploy
 
+try:
+    from cumulus_api.commands import cmd_report
+except ImportError:
+    cmd_report = None
+
 log = logging.getLogger(__name__)
 
 
@@ -20,6 +25,8 @@ def get_parser() -> argparse.ArgumentParser:
 
     add_subcommand(subparsers, cmd_curl)
     add_subcommand(subparsers, cmd_deploy)
+    if cmd_report:
+        add_subcommand(subparsers, cmd_report)
 
     return parser
 

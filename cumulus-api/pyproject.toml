@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "cumulus-api"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"
@@ -17,3 +17,10 @@ cumulus = "cumulus_api:main.main"
 [tool.poetry.dependencies]
 python = ">=3.8,<4"
 boto3 = "^1.28.76"
+# Optional dependencies, opted in with below extras.
+cumulus-report = { git = "git@github.com:asfadmin/cumulus-report.git", optional = true}
+dateparser = { version = "^1.2.0", optional = true }
+sortedcontainers = { version = "^2.4.0", optional = true }
+
+[tool.poetry.extras]
+report = ["cumulus-report", "dateparser", "sortedcontainers"]

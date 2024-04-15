@@ -16,3 +16,9 @@ access the cumulus API in a familiar way.
 The `cumulus deploy` command will update or create providers, collections and
 rules from JSON files discovered within a directory. This functionality comes
 from how providers, collections and rules were originally handled in CIRRUS.
+
+### Report (optional)
+*This command is enabled by installing the package with the `report` extra.*
+
+The `cumulus report` command creates a reconciliation report for granules
+ingested over the last week using the cumulus API and CMR API.
