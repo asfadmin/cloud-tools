@@ -24,9 +24,14 @@ def add_parser(
     )
     parser_upload.add_argument(
         "--collection",
+        help="Collection name of this product",
+        required=True,
+    )
+    parser_upload.add_argument(
+        "--data-version",
         help=(
-            "Collection name of this product. If not set, the command will "
-            "attempt to guess the collection name from the file path."
+            "Data version for this product. If not set, the product will be "
+            "uploaded without a data version."
         ),
     )
     parser_upload.add_argument(
@@ -74,7 +79,8 @@ def cmd_upload(
             uploader.upload_file(
                 path,
                 collection=args.collection,
-                product=args.product
+                data_version=args.data_version,
+                product=args.product,
             )
         else:
             for root, _, files in os.walk(path):
@@ -86,6 +92,7 @@ def cmd_upload(
                     uploader.upload_file(
                         root_path / file,
                         collection=args.collection,
+                        data_version=args.data_version,
                         product=args.product,
                     )
 

@@ -24,7 +24,7 @@ from test_cnm.config import Config
 log = logging.getLogger(__name__)
 
 
-def get_parser():
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -66,8 +66,11 @@ def get_parser():
         help="Name of the CNM-S provider",
     )
     parser.add_argument(
-        "--data-version",
-        help="Data version to use in the CNM-S",
+        "--default-data-version",
+        help=(
+            "Data version to use in the CNM-S if none is explicitly set in the "
+            "object key"
+        ),
     )
     parser.add_argument(
         "--trace",

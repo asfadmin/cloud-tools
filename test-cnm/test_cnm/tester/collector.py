@@ -1,4 +1,6 @@
+import fnmatch
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +9,8 @@ from typing import Dict, List, Optional, Protocol, TypedDict
 import boto3
 
 log = logging.getLogger(__name__)
+
+DATA_VERSION_PATTERN = re.compile(r"^\d+\.\d+|\d$")
 
 
 class FileDict(TypedDict):
@@ -19,10 +23,16 @@ class FileDict(TypedDict):
 @dataclass
 class TestInfo:
     collection: str
-    data_version: str
+    data_version: Optional[str]
     name: str
     files: List[FileDict]
     cnm_s: Optional[dict] = None
+
+    def get_id(self) -> str:
+        if self.data_version:
+            return f"{self.collection}/{self.data_version}/{self.name}"
+
+        return f"{self.collection}/{self.name}"
 
 
 class TestCollector(Protocol):
@@ -31,10 +41,9 @@ class TestCollector(Protocol):
 
 
 class BucketTestCollector:
-    def __init__(self, session: boto3.Session, bucket: str, data_version: str):
+    def __init__(self, session: boto3.Session, bucket: str):
         self.session = session
         self.test_bucket = bucket
-        self.data_version = data_version
 
     def collect_tests(self, filters: List[str]) -> Dict[str, TestInfo]:
         client = self.session.client("s3")
@@ -51,8 +60,13 @@ class BucketTestCollector:
                     continue
 
                 collection = path.parts[0]
+                data_version = (
+                    path.parts[1]
+                    if DATA_VERSION_PATTERN.fullmatch(path.parts[1]) else
+                    None
+                )
                 name = path.parts[-2]
-                s3_entries[(collection, name)].append({
+                s3_entries[(collection, data_version, name)].append({
                     "Bucket": response["Name"],
                     "Key": key,
                     "Size": entry["Size"],
@@ -61,15 +75,26 @@ class BucketTestCollector:
                 })
 
         return {
-            name: TestInfo(
-                collection,
-                self.data_version,
-                name,
-                files,
-            )
-            for (collection, name), files in s3_entries.items()
-            if not filters or any(
-                f"{collection}/{name}".startswith(f)
-                for f in filters
+            name: test
+            for (collection, data_version, name), files in s3_entries.items()
+            if _match_filters(
+                filters,
+                (
+                    test := TestInfo(
+                        collection,
+                        data_version,
+                        name,
+                        files,
+                    )
+                ),
             )
         }
+
+
+def _match_filters(filters: List[str], test: TestInfo) -> bool:
+    if not filters:
+        return True
+
+    test_id = test.get_id()
+
+    return any(fnmatch.fnmatchcase(test_id, f + "*") for f in filters)
