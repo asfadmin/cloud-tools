@@ -13,6 +13,7 @@ def add_parser(
 ) -> argparse.ArgumentParser:
     parser_list = subparsers.add_parser(
         "list",
+        aliases=["ls"],
         help="List available test products",
     )
     parser_list.add_argument(

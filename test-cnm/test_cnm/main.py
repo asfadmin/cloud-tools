@@ -14,6 +14,7 @@ from typing import List, Optional
 
 from test_cnm.commands import (
     cmd_list,
+    cmd_move,
     cmd_test,
     cmd_tidy,
     cmd_update_checksums,
@@ -85,6 +86,7 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     cmd_list.add_parser(subparsers)
+    cmd_move.add_parser(subparsers)
     cmd_test.add_parser(subparsers)
     cmd_tidy.add_parser(subparsers)
     cmd_update_checksums.add_parser(subparsers)
