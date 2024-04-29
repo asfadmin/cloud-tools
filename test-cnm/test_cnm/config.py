@@ -19,9 +19,7 @@ class Config:
     cnm_ingest_queue: str
     cnm_response_queue: str
     provider: str
-    # TODO(reweeden): Should this come from the object key?
-    # For instance COLLECTION/DATA_VERSION/.../PRODUCT/PRODUCT.file_ext
-    data_version: str = "1.0"
+    default_data_version: str = "1.0"
     stack_name: Optional[str] = None
     trace: Optional[str] = None
 

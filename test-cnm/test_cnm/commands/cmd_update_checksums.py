@@ -89,9 +89,11 @@ def cmd_update_checksums(
                 etag_md5sum = m.group(1)
                 if etag_md5sum != md5sum:
                     log.warning(
-                        "Computed checksum for s3://%s/%s did not match etag %s",
+                        "Computed checksum for s3://%s/%s did not match etag "
+                        "[computed: %s, etag: %s]",
                         bucket,
                         key,
+                        md5sum,
                         etag_md5sum,
                     )
 

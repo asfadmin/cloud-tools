@@ -13,11 +13,15 @@ def add_parser(
 ) -> argparse.ArgumentParser:
     parser_list = subparsers.add_parser(
         "list",
+        aliases=["ls"],
         help="List available test products",
     )
     parser_list.add_argument(
         "filter",
-        help="Name to filter tests by",
+        help=(
+            "Glob pattern to filter tests by. Can include '*', '?' and '[]' "
+            "expressions"
+        ),
         nargs="*",
         default=[],
     )
@@ -38,7 +42,6 @@ def cmd_list(
     collector = BucketTestCollector(
         session,
         config.test_bucket,
-        config.data_version,
     )
     tests = collector.collect_tests(filters)
 
@@ -50,6 +53,11 @@ def cmd_list(
     for collection, grouped_tests in tests_by_collection.items():
         log.info("%s:", collection)
         for test in grouped_tests:
-            log.info("  - %s", test.name)
+            prefix = f"{collection}/"
+            test_id = test.get_id()
+            # TODO(reweeden): Python3.9+ use 'removeprefix'
+            if test_id.startswith(prefix):
+                test_id = test_id[len(prefix):]
+            log.info("  - %s", test_id)
 
     log.info("\nTotals: %s Collections; %s Tests", len(tests_by_collection), len(tests))

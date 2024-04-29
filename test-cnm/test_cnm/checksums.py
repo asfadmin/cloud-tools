@@ -86,6 +86,9 @@ class Checksums:
     def __contains__(self, key: str) -> bool:
         return key in self.checksums
 
+    def __delitem__(self, key: str):
+        del self.checksums[key]
+
     def __getitem__(self, key: str) -> str:
         return self.checksums[key]["checksum"]
 

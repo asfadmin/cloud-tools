@@ -17,7 +17,10 @@ def add_parser(
     )
     parser_test.add_argument(
         "filter",
-        help="Run tests matching this prefix. Multiple filters are or'd together",
+        help=(
+            "Glob pattern to filter tests by. Can include '*', '?' and '[]' "
+            "expressions"
+        ),
         nargs="*",
         default=[],
     )
@@ -41,7 +44,6 @@ def cmd_test(
     collector = BucketTestCollector(
         session,
         config.test_bucket,
-        config.data_version,
     )
     ingest_client = CnmIngestClient(
         session=session,
@@ -53,6 +55,10 @@ def cmd_test(
         start_queue=config.cnm_ingest_queue_name(),
         response_queue=config.cnm_response_queue_name(),
     )
-    executor = TestExecutor(collector, ingest_client)
+    executor = TestExecutor(
+        collector,
+        ingest_client,
+        config.default_data_version,
+    )
 
     executor.run(filters)

@@ -14,6 +14,7 @@ from typing import List, Optional
 
 from test_cnm.commands import (
     cmd_list,
+    cmd_move,
     cmd_test,
     cmd_tidy,
     cmd_update_checksums,
@@ -24,7 +25,7 @@ from test_cnm.config import Config
 log = logging.getLogger(__name__)
 
 
-def get_parser():
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -66,8 +67,11 @@ def get_parser():
         help="Name of the CNM-S provider",
     )
     parser.add_argument(
-        "--data-version",
-        help="Data version to use in the CNM-S",
+        "--default-data-version",
+        help=(
+            "Data version to use in the CNM-S if none is explicitly set in the "
+            "object key"
+        ),
     )
     parser.add_argument(
         "--trace",
@@ -82,6 +86,7 @@ def get_parser():
     )
 
     cmd_list.add_parser(subparsers)
+    cmd_move.add_parser(subparsers)
     cmd_test.add_parser(subparsers)
     cmd_tidy.add_parser(subparsers)
     cmd_update_checksums.add_parser(subparsers)

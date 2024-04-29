@@ -13,9 +13,11 @@ class TestExecutor:
         self,
         collector: TestCollector,
         ingest_client: CnmIngestClient,
+        default_data_version: str,
     ):
         self.collector = collector
         self.ingest_client = ingest_client
+        self.default_data_version = default_data_version
 
     def run(self, filters: List[str]):
         # Collect
@@ -23,10 +25,10 @@ class TestExecutor:
 
         # Start
         for test in tests.values():
-            log.info("Starting: %s/%s", test.collection, test.name)
+            log.info("Starting: %s", test.get_id())
             test.cnm_s = self.ingest_client.submit_request(
                 test.collection,
-                test.data_version,
+                test.data_version or self.default_data_version,
                 test.name,
                 test.files,
             )
@@ -39,7 +41,7 @@ class TestExecutor:
             status = response.get("status")
             ok = _response_ok(cnm_r)
 
-            log.info("%s\t%s\t| %s/%s", ok, status, test.collection, test.name)
+            log.info("%s\t%s\t| %s", ok, status, test.get_id())
 
             if not ok:
                 num_failed += 1
