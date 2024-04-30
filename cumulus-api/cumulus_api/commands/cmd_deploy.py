@@ -79,14 +79,20 @@ def deploy_pcrs(args: argparse.Namespace):
                 method="PUT",
                 path=object_path,
                 body=json.dumps(obj),
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Cumulus-API-Version": args.cumulus_api_version,
+                },
             ).json()
         else:
             response_payload = api_client.request(
                 method="POST",
                 path=f"/{object_type}",
                 body=json.dumps(obj),
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Cumulus-API-Version": args.cumulus_api_version,
+                },
             ).json()
 
         status = http.HTTPStatus(response_payload["statusCode"])
