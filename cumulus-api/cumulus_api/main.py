@@ -53,6 +53,13 @@ def add_common_args(parser: argparse._ActionsContainer):
         default="PrivateApiLambda",
         dest="lambda_name",
     )
+    parser.add_argument(
+        "--api-version",
+        help="Cumulus API Version to use",
+        type=int,
+        default=1,
+        dest="cumulus_api_version",
+    )
 
 
 def main(args: Optional[List[str]] = None):
