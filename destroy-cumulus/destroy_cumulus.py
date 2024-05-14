@@ -7,6 +7,8 @@ import logging
 import re
 import sys
 import time
+from importlib.metadata import Distribution
+from platform import python_version
 
 import boto3
 import botocore
@@ -1637,6 +1639,17 @@ def _tag_dict(tags):
     return {tag["Key"]: tag["Value"] for tag in tags}
 
 
+def _get_version() -> str:
+    name = "destroy-cumulus"
+    dist = Distribution.from_name(name)
+    direct_url = json.loads(dist.read_text("direct_url.json"))
+    editable = direct_url.get("dir_info", {}).get("editable", False)
+    return (
+        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
+        f"on Python {python_version()}"
+    )
+
+
 def main(args=None):
     parser = argparse.ArgumentParser(
         description="Clean up partially destroyed Cumulus stacks",
@@ -1689,6 +1702,7 @@ def main(args=None):
     output_group.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
     output_group.add_argument("--tags", help="Display all resource tags", action="store_true")
 
+    parser.add_argument("--version", action="version", version=_get_version())
     parser.add_argument("--profile", help="AWS profile")
     parser.add_argument("--yes", "-y", help="Auto confirm prompts", action="store_true", default=False)
 
