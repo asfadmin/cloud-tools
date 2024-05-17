@@ -7,9 +7,12 @@ Run with --help for more information.
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
+from importlib.metadata import Distribution
+from platform import python_version
 from typing import List, Optional
 
 from test_cnm.commands import (
@@ -25,9 +28,21 @@ from test_cnm.config import Config
 log = logging.getLogger(__name__)
 
 
+def _get_version() -> str:
+    name = "test-cnm"
+    dist = Distribution.from_name(name)
+    direct_url = json.loads(dist.read_text("direct_url.json"))
+    editable = direct_url.get("dir_info", {}).get("editable", False)
+    return (
+        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
+        f"on Python {python_version()}"
+    )
+
+
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--version", action="version", version=_get_version())
     parser.add_argument(
         "--verbose",
         "-v",

@@ -1,5 +1,6 @@
 import argparse
 import inspect
+import json
 import os
 import stat
 import sys
@@ -9,6 +10,8 @@ from binascii import hexlify
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
+from importlib.metadata import Distribution
+from platform import python_version
 from typing import Any, Callable
 from urllib.parse import ParseResult
 
@@ -18,6 +21,17 @@ from aws_requests_auth.aws_auth import AWSRequestsAuth
 from remotezip import RemoteZip
 
 
+def _get_version() -> str:
+    name = "remotezip-cli"
+    dist = Distribution.from_name(name)
+    direct_url = json.loads(dist.read_text("direct_url.json"))
+    editable = direct_url.get("dir_info", {}).get("editable", False)
+    return (
+        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
+        f"on Python {python_version()}"
+    )
+
+
 def url(value: str) -> ParseResult:
     return urllib.parse.urlparse(value)
 
@@ -25,6 +39,7 @@ def url(value: str) -> ParseResult:
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--version", action="version", version=_get_version())
     parser.add_argument("--profile", help="AWS profile name")
 
     subparsers = parser.add_subparsers(
