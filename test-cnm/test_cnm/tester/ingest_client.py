@@ -51,7 +51,8 @@ class CnmIngestClient:
     def iter_responses(self):
         while self._requests:
             response = self.client.receive_message(
-                QueueUrl=self.response_queue
+                QueueUrl=self.response_queue,
+                WaitTimeSeconds=5,
             )
             for message in response.get("Messages", ()):
                 cnm_r = json.loads(message["Body"])
