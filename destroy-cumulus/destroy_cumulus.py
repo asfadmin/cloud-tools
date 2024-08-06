@@ -1283,6 +1283,28 @@ class SQSQueue(Resource):
         client.delete_queue(QueueUrl=self.name)
 
 
+class SSMParameter(Resource):
+    TYPE_FILTER = "ssm:parameter"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher):
+        client = get_client("ssm")
+        paginator = client.get_paginator("describe_parameters")
+
+        return [
+            cls.from_arn(Arn(entry["ARN"]))
+            # No filtering by tags because these have not been tagged in
+            # CIRRUS-core in the past.
+            for response in paginator.paginate()
+            for entry in response.get("Parameters", ())
+            if name_matcher.matches(entry["Name"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("ssm")
+        client.delete_parameter(Name=self.name)
+
+
 class StepFunction(Resource):
     TYPE_FILTER = "states:stateMachine"
 
