@@ -22,7 +22,7 @@ def mock_queues(get_client):
 
 
 @pytest.mark.slow
-def test_gather_all_empty_prefixs(monkeypatch):
+def test_gather_all_empty_prefix(monkeypatch):
     # Patch out unsupported types
     monkeypatch.setitem(Resource.TYPES, "es:domain", mock.create_autospec(ElasticsearchDomain))
     monkeypatch.setitem(Resource.TYPES, "states:activity", mock.create_autospec(Activity))
@@ -35,7 +35,7 @@ def test_gather_all_empty_prefixs(monkeypatch):
         )
         resources = destroyer.gather()
 
-    assert len(resources) == 1
+    assert len(resources) == 2
 
 
 @moto.mock_resourcegroupstaggingapi

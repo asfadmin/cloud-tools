@@ -50,3 +50,29 @@ def test_prefix_exclude():
     assert not name_matcher.matches("foobazbar")
     assert not name_matcher.matches("foobar-baz")
     assert not name_matcher.matches("foobar/baz")
+
+
+def test_replace():
+    name_matcher = NameMatcher(
+        prefix="foo-",
+        exclude=["foo-bar", "foo-baz"],
+    )
+    replaced_matcher = name_matcher.replace("-", "_")
+
+    assert replaced_matcher.matches("foo_")
+    assert replaced_matcher.matches("foo_/bar")
+    assert replaced_matcher.matches("foo_-bar")
+
+    assert not replaced_matcher.matches("fo")
+    assert not replaced_matcher.matches("foo")
+    assert not replaced_matcher.matches("foo-")
+    assert not replaced_matcher.matches("bar")
+    assert not replaced_matcher.matches("far")
+
+    # Specifically excluded names
+    assert not replaced_matcher.matches("foo_bar")
+    assert not replaced_matcher.matches("foo_baz")
+    assert not replaced_matcher.matches("foo_barbaz")
+    assert not replaced_matcher.matches("foo_bazbar")
+    assert not replaced_matcher.matches("foo_bar-baz")
+    assert not replaced_matcher.matches("foo_bar/baz")
