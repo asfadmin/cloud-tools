@@ -234,6 +234,18 @@ class TaggedResourceCollector:
         for entry in entries:
             arn = Arn(entry["ResourceARN"])
 
+            if arn.type_id in (
+                "application-autoscaling:scalable-target",
+            ):
+                log.debug(
+                    "Skipping arn '%s' for type '%s' as it is a known child "
+                    "of a different resource and will be destroyed "
+                    "automatically when the parent is destroyed.",
+                    arn,
+                    arn.type_id,
+                )
+                continue
+
             cls = Resource.TYPES.get(arn.type_id)
             if cls is None:
                 log.warning("Unhandled arn '%s' for type '%s'", arn, arn.type_id)
