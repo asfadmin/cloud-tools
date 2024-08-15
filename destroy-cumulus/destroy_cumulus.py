@@ -93,10 +93,15 @@ class Arn:
             # Only slashes
             self.type, *rest = ident.split("/", 1)
             rest = "".join(rest)
-            if self.type == "":
+            if self.service == "apigateway":
                 # Weird special case for apigateway where arns look like this:
                 # arn:aws:apigateway:us-west-2::/restapis/d36my9ab58
-                self.type, self.name = rest.split("/", 1)
+                # For nested resources like Stages, Methods etc the id portion
+                # follows the pattern:
+                # ::/restapis/<api-id>/<subtype>/<subtype-id>/<sub-subtype>/<sub-subtype-id>/...
+                rest_parts = rest.split("/")
+                self.type = "-".join(rest_parts[::2])
+                self.name = "/".join(rest_parts[1::2])
                 self.id = self.name
             elif self.service == "iam":
                 # Special case for roles where the role names can be prefixed such as
@@ -266,6 +271,7 @@ class TaggedResourceCollector:
 
             # Ignored ARNs
             if arn.type_id in (
+                "apigateway:restapis-stages",
                 "application-autoscaling:scalable-target",
                 "ecs:service",
             ):
