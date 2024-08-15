@@ -654,6 +654,31 @@ class DynamoDBTable(Resource):
         client.delete_table(TableName=self.name)
 
 
+class ECRRepository(Resource):
+    """Possible workflow resource. Not part of core."""
+
+    TYPE_FILTER = "ecr:repository"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher):
+        client = get_client("ecr")
+        paginator = client.get_paginator("describe_repositories")
+
+        return [
+            cls(name, name)
+            for response in paginator.paginate()
+            for entry in response.get("repositories", ())
+            if name_matcher.matches((name := entry["repositoryName"]))
+        ]
+
+    def delete(self, get_client):
+        client = get_client("ecr")
+        client.delete_repository(
+            repositoryName=self.name,
+            force=True,
+        )
+
+
 class ECSCluster(Resource):
     TYPE_FILTER = "ecs:cluster"
 
@@ -1379,6 +1404,7 @@ class CumulusDestroyer:
         DynamoDBTable,
         ECSCluster,
         ECSTaskDefinition,
+        ECRRepository,
         RDSCluster,
         RDSClusterParameterGroup,
         RDSSubnetGroup,
