@@ -793,23 +793,35 @@ class ECSService(Resource):
 class ECSTaskDefinition(VersionedResource):
     TYPE_FILTER = "ecs:task-definition"
 
+    def __init__(self, name, id, status=None, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.status = status
+
     @classmethod
     def gather(cls, get_client, name_matcher):
         client = get_client("ecs")
         paginator = client.get_paginator("list_task_definitions")
 
         return [
-            cls.from_arn(arn)
-            for response in paginator.paginate()
+            cls(arn.name, arn.id, status=status, arn=arn)
+            for status in ("ACTIVE", "INACTIVE", "DELETE_IN_PROGRESS")
+            for response in paginator.paginate(status=status)
             for arn_ in response["taskDefinitionArns"]
             if name_matcher.matches((arn := Arn(arn_)).name)
         ]
 
     def delete(self, get_client):
         client = get_client("ecs")
-        client.deregister_task_definition(taskDefinition=str(self.arn))
+        if self.status != "DELETE_IN_PROGRESS":
+            client.deregister_task_definition(taskDefinition=str(self.arn))
         # NOTE: Could actually do a bulk delete here
         client.delete_task_definitions(taskDefinitions=[str(self.arn)])
+
+    def display(self, *args, **kwargs):
+        lines = super().display(*args, **kwargs)
+        if self.status:
+            lines[0] = lines[0] + f" ({self.status})"
+        return lines
 
 
 class ElasticsearchDomain(Resource):
