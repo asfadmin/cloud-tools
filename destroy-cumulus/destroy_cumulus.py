@@ -264,8 +264,10 @@ class TaggedResourceCollector:
         for entry in entries:
             arn = Arn(entry["ResourceARN"])
 
+            # Ignored ARNs
             if arn.type_id in (
                 "application-autoscaling:scalable-target",
+                "ecs:service",
             ):
                 log.debug(
                     "Skipping arn '%s' for type '%s' as it is a known child "
