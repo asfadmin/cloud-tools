@@ -808,6 +808,8 @@ class ECSTaskDefinition(VersionedResource):
     def delete(self, get_client):
         client = get_client("ecs")
         client.deregister_task_definition(taskDefinition=str(self.arn))
+        # NOTE: Could actually do a bulk delete here
+        client.delete_task_definitions(taskDefinitions=[str(self.arn)])
 
 
 class ElasticsearchDomain(Resource):
