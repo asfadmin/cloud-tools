@@ -131,11 +131,14 @@ class Resource:
     TYPE_FILTER = object()
     TYPES = {}
 
-    def __init_subclass__(cls):
-        if cls.TYPE_FILTER is Resource.TYPE_FILTER:
-            raise RuntimeError(f"'{cls.__name__}' missing 'TYPE_FILTER'")
+    def __init_subclass__(cls, register=True, **kwargs):
+        if register:
+            if cls.TYPE_FILTER is Resource.TYPE_FILTER:
+                raise RuntimeError(f"'{cls.__name__}' missing 'TYPE_FILTER'")
 
-        Resource.TYPES[cls.TYPE_FILTER] = cls
+            Resource.TYPES[cls.TYPE_FILTER] = cls
+
+        super().__init_subclass__(**kwargs)
 
     def __init__(self, name, id, arn=None, tags=()):
         self.name = name
@@ -185,6 +188,9 @@ class Resource:
 
         return [header_line]
 
+    def get_sort_key(self):
+        return self.get_display_name()
+
     # These implementations are for de-duplicating using a set()
     # Some aws api calls don't return much information so we may not always
     # have access to the entire ARN
@@ -193,6 +199,30 @@ class Resource:
 
     def __eq__(self, other):
         return (self.__class__, self.id) == (other.__class__, other.id)
+
+
+class VersionedResource(Resource, register=False):
+    """A resource where the arn ends with a ':<VersionNumber>'"""
+
+    def get_display_name(self):
+        return f"{self.name}:{self.id}"
+
+    def get_sort_key(self):
+        return (self.name, int(self.id))
+
+    def __hash__(self):
+        return hash((self.__class__, self.id))
+
+    def __eq__(self, other):
+        return (
+            self.__class__,
+            self.name,
+            self.id,
+        ) == (
+            other.__class__,
+            other.name,
+            other.id,
+        )
 
 
 class TaggedResourceCollector:
@@ -760,7 +790,7 @@ class ECSService(Resource):
         )
 
 
-class ECSTaskDefinition(Resource):
+class ECSTaskDefinition(VersionedResource):
     TYPE_FILTER = "ecs:task-definition"
 
     @classmethod
@@ -990,7 +1020,7 @@ class LambdaFunction(Resource):
         client.delete_function(FunctionName=str(self.arn))
 
 
-class LambdaLayerVersion(Resource):
+class LambdaLayerVersion(VersionedResource):
     TYPE_FILTER = "lambda:layer"
 
     @classmethod
@@ -1014,15 +1044,6 @@ class LambdaLayerVersion(Resource):
             LayerName=self.name,
             VersionNumber=int(self.id),
         )
-
-    def get_display_name(self):
-        return f"{self.name}:{self.id}"
-
-    def __hash__(self):
-        return hash((self.__class__, self.id))
-
-    def __eq__(self, other):
-        return (self.__class__, self.name, self.id) == (other.__class__, other.name, other.id)
 
 
 class NetworkInterface(Resource):
@@ -1464,7 +1485,7 @@ class CumulusDestroyer:
                 self._SORT_KEY.get(res.__class__, len(self._SORT_KEY)),
                 res.__class__.__name__,
                 res.tags.get("Deployment", ""),
-                res.get_display_name(),
+                res.get_sort_key(),
             ),
         )
 
