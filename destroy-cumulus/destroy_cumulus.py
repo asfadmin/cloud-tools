@@ -1890,7 +1890,7 @@ def main(args=None):
     args = parser.parse_args(args=args)
 
     log.addHandler(logging.StreamHandler(sys.stdout))
-    level = max(logging.INFO - args.verbose * 10, 0)
+    level = max(logging.INFO - args.verbose * 10, 1)
     log.setLevel(level)
 
     destroyer = CumulusDestroyer(
