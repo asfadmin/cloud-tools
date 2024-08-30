@@ -1133,6 +1133,9 @@ class NetworkInterface(Resource):
         client = get_client("ec2")
         client.delete_network_interface(NetworkInterfaceId=self.id)
 
+    def get_display_name(self):
+        return self.name or self.id
+
     def display(self, *args, **kwargs):
         lines = super().display(*args, **kwargs)
         lines[0] = lines[0] + f" ({self.status})"
