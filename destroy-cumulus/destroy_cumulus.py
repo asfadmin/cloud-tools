@@ -158,7 +158,9 @@ class Resource:
 
     def delete(self, get_client):
         """Destroy this resource"""
-        raise NotImplementedError(f"Method 'delete' is not implemented for {self.__class__.__name__}")
+        raise NotImplementedError(
+            f"Method 'delete' is not implemented for {self.__class__.__name__}",
+        )
 
     def get_dependencies(self):
         """Return a list of resources which should be displayed as children of
@@ -1183,7 +1185,9 @@ class RDSClusterParameterGroup(Resource):
 
     def delete(self, get_client):
         client = get_client("rds")
-        client.delete_db_cluster_parameter_group(DBClusterParameterGroupName=self.name)
+        client.delete_db_cluster_parameter_group(
+            DBClusterParameterGroupName=self.name,
+        )
 
 
 class RDSSubnetGroup(Resource):
