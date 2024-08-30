@@ -7,6 +7,7 @@ import logging
 import re
 import sys
 import time
+from collections import defaultdict
 from importlib.metadata import Distribution
 from platform import python_version
 
@@ -1469,6 +1470,7 @@ class StepFunction(Resource):
 class ResourceSet:
     def __init__(self, iterable=()):
         self._resources = {}
+        self._resources_by_class = defaultdict(set)
         for item in iterable:
             self.add(item)
 
@@ -1480,9 +1482,16 @@ class ResourceSet:
                 resource.name,
             )
             old = self._resources.pop(resource)
+            self._resources_by_class[resource.__class__].discard(resource)
             resource.tags.update(old.tags)
 
         self._resources[resource] = resource
+        self._resources_by_class[resource.__class__].add(resource)
+
+    def iter_by_class(self):
+        for key, values in self._resources_by_class.items():
+            if values:
+                yield (key, values)
 
     def __iter__(self):
         return iter(self._resources.values())
