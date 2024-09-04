@@ -128,6 +128,19 @@ def test_arn_api_gateway():
     assert arn.id == "d36my9ab58"
     assert arn.type_id == "apigateway:restapis"
 
+
+def test_arn_api_gateway_stage():
+    arn = Arn("arn:aws:apigateway:us-west-2::/restapis/d36my9ab58/stages/dev")
+
+    assert arn.partition == "aws"
+    assert arn.service == "apigateway"
+    assert arn.region == "us-west-2"
+    assert arn.account == ""
+    assert arn.type == "restapis-stages"
+    assert arn.name == "d36my9ab58/dev"
+    assert arn.id == "d36my9ab58/dev"
+    assert arn.type_id == "apigateway:restapis-stages"
+
 #
 # Colons and slashes in identifier
 #

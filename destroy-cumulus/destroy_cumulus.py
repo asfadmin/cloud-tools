@@ -93,10 +93,15 @@ class Arn:
             # Only slashes
             self.type, *rest = ident.split("/", 1)
             rest = "".join(rest)
-            if self.type == "":
+            if self.service == "apigateway":
                 # Weird special case for apigateway where arns look like this:
                 # arn:aws:apigateway:us-west-2::/restapis/d36my9ab58
-                self.type, self.name = rest.split("/", 1)
+                # For nested resources like Stages, Methods etc the id portion
+                # follows the pattern:
+                # ::/restapis/<api-id>/<subtype>/<subtype-id>/<sub-subtype>/<sub-subtype-id>/...
+                rest_parts = rest.split("/")
+                self.type = "-".join(rest_parts[::2])
+                self.name = "/".join(rest_parts[1::2])
                 self.id = self.name
             elif self.service == "iam":
                 # Special case for roles where the role names can be prefixed such as
@@ -266,6 +271,7 @@ class TaggedResourceCollector:
 
             # Ignored ARNs
             if arn.type_id in (
+                "apigateway:restapis-stages",
                 "application-autoscaling:scalable-target",
                 "ecs:service",
             ):
@@ -463,6 +469,32 @@ class ApiGateway(Resource):
             lines[0] = "/".join((lines[0], self.id))
 
         return lines
+
+
+class AthenaWorkGroup(Resource):
+    TYPE_FILTER = "athena:workgroup"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher):
+        # For some reason cumulus decided to change the naming convention for
+        # these resources.
+        name_matcher = name_matcher.replace("-", "_")
+
+        client = get_client("athena")
+        response = client.list_work_groups()
+
+        return [
+            cls(name, name)
+            for entry in response.get("WorkGroups", ())
+            if name_matcher.matches((name := entry["Name"]))
+        ]
+
+    def delete(self, get_client):
+        client = get_client("athena")
+        client.delete_work_group(
+            WorkGroup=self.name,
+            RecursiveDeleteOption=True,
+        )
 
 
 class Bucket(Resource):
@@ -872,6 +904,34 @@ class EventSourceMapping(Resource):
 
     def get_display_name(self):
         return f"{self.event_source_arn.name} -> {self.function_arn.name}"
+
+
+class GlueDatabase(Resource):
+    TYPE_FILTER = "glue:database"
+
+    def __init__(self, name, catalog_id, arn=None, tags=()):
+        super().__init__(name, name, arn=arn, tags=tags)
+        self.catalog_id = catalog_id
+
+    @classmethod
+    def gather(cls, get_client, name_matcher):
+        # For some reason cumulus decided to change the naming convention for
+        # these resources.
+        name_matcher = name_matcher.replace("-", "_")
+
+        client = get_client("glue")
+        paginator = client.get_paginator("get_databases")
+
+        return [
+            cls(name, entry["CatalogId"])
+            for response in paginator.paginate()
+            for entry in response.get("DatabaseList", ())
+            if name_matcher.matches((name := entry["Name"]))
+        ]
+
+    def delete(self, get_client):
+        client = get_client("glue")
+        client.delete_database(CatalogId=self.catalog_id, Name=self.name)
 
 
 class IAMInstanceProfile(Resource):
@@ -1668,6 +1728,14 @@ class NameMatcher:
         return not any(
             value.startswith(prefix)
             for prefix in self.exclude
+        )
+
+    def replace(self, old, new, count=-1):
+        """Return a new NameMatcher with str.replace called on all string"""
+
+        return NameMatcher(
+            prefix=self.prefix.replace(old, new, count),
+            exclude=tuple(ex.replace(old, new, count) for ex in self.exclude),
         )
 
 
