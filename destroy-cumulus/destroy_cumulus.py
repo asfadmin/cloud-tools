@@ -1,12 +1,12 @@
 import argparse
 import contextlib
 import functools
-import itertools
 import json
 import logging
 import re
 import sys
 import time
+from collections import defaultdict
 from importlib.metadata import Distribution
 from platform import python_version
 
@@ -60,9 +60,9 @@ prefix `some-prefix` and printing verbose output:
 # Resource gathering is implemented through 'collector' objects. A collector is
 # any object with a `gather(get_client, name_matcher) -> list[Resource]` method.
 # Most "Resource's" are currently implemented as collectors that know how to
-# find that type of resource. Usually these type of collectors should be
-# finding resources by name prefix, as there is already a
-# TaggedResourceCollector that can find resources by 'Deployment' tag.
+# find that type of resource. These type of collectors should always be finding
+# resources by name prefix, as there is already a TaggedResourceCollector that
+# can find resources by 'Deployment' tag.
 #
 # Resource teardown is implemented as the `delete(get_client)` method on
 # 'Resource' objects. To add support for a new type of resource, just implement
@@ -155,9 +155,26 @@ class Resource:
     def from_arn(cls, arn, tags=()):
         return cls(arn.name, arn.id, arn=arn, tags=tags)
 
+    def load(self, get_client):
+        """Load additional data necessary to destroy the resource. This will be
+        called immediately after `gather` and before `delete`.
+        """
+        pass
+
+    @classmethod
+    def load_bulk(cls, get_client, resources):
+        """Bulk version of `load` for optimizing API calls when data can be
+        returned in bulk. The default implementation simply calls `load` on
+        each resource.
+        """
+        for resource in resources:
+            resource.load(get_client)
+
     def delete(self, get_client):
         """Destroy this resource"""
-        raise NotImplementedError(f"Method 'delete' is not implemented for {self.__class__.__name__}")
+        raise NotImplementedError(
+            f"Method 'delete' is not implemented for {self.__class__.__name__}",
+        )
 
     def get_dependencies(self):
         """Return a list of resources which should be displayed as children of
@@ -1133,6 +1150,9 @@ class NetworkInterface(Resource):
         client = get_client("ec2")
         client.delete_network_interface(NetworkInterfaceId=self.id)
 
+    def get_display_name(self):
+        return self.name or self.id
+
     def display(self, *args, **kwargs):
         lines = super().display(*args, **kwargs)
         lines[0] = lines[0] + f" ({self.status})"
@@ -1170,8 +1190,7 @@ class RDSClusterParameterGroup(Resource):
         return [
             cls.from_arn(Arn(entry["DBClusterParameterGroupArn"]))
             for response in paginator.paginate(
-                # NOTE(12/22/23): Filters are not supported yet
-                # Filters=[dict(Name="tag:Deployment", Values=[name_matcher.prefix + "*"])]
+                # NOTE(08/30/24): Filters are not supported yet
             )
             for entry in response.get("DBClusterParameterGroups", ())
             if name_matcher.matches(entry["DBClusterParameterGroupName"])
@@ -1179,7 +1198,9 @@ class RDSClusterParameterGroup(Resource):
 
     def delete(self, get_client):
         client = get_client("rds")
-        client.delete_db_cluster_parameter_group(DBClusterParameterGroupName=self.name)
+        client.delete_db_cluster_parameter_group(
+            DBClusterParameterGroupName=self.name,
+        )
 
 
 class RDSSubnetGroup(Resource):
@@ -1193,8 +1214,7 @@ class RDSSubnetGroup(Resource):
         return [
             cls.from_arn(Arn(entry["DBSubnetGroupArn"]))
             for response in paginator.paginate(
-                # NOTE(04/25/22): Filters are not supported yet
-                # Filters=[dict(Name="tag:Deployment", Values=[name_matcher.prefix + "*"])]
+                # NOTE(08/30/24): Filters are not supported yet
             )
             for entry in response.get("DBSubnetGroups", ())
             if name_matcher.matches(entry["DBSubnetGroupName"])
@@ -1243,25 +1263,14 @@ class SecurityGroup(Resource):
     def gather(cls, get_client, name_matcher):
         client = get_client("ec2")
         paginator = client.get_paginator("describe_security_groups")
-        eni_paginator = client.get_paginator("describe_network_interfaces")
 
-        tagged_entries = (
-            entry
-            for response in paginator.paginate(
-                Filters=[
-                    dict(
-                        Name="tag:Deployment",
-                        Values=[name_matcher.prefix + "*"],
-                    ),
-                ],
+        return [
+            cls(
+                entry["GroupName"],
+                entry["GroupId"],
+                network_interfaces=[],
+                tags=entry.get("Tags", ()),
             )
-            for entry in response.get("SecurityGroups", ())
-            if (
-                deployment := _tag_dict(entry.get("Tags", ())).get("Deployment")
-            ) and name_matcher.matches(deployment)
-        )
-        named_entries = (
-            entry
             for response in paginator.paginate(
                 Filters=[
                     dict(
@@ -1272,28 +1281,55 @@ class SecurityGroup(Resource):
             )
             for entry in response.get("SecurityGroups", ())
             if name_matcher.matches(entry["GroupName"])
-        )
-
-        return [
-            cls(
-                entry["GroupName"],
-                entry["GroupId"],
-                network_interfaces=[
-                    NetworkInterface(
-                        entry["Description"],
-                        entry["NetworkInterfaceId"],
-                        entry["Status"],
-                        tags=entry.get("TagSet", ()),
-                    )
-                    for response in eni_paginator.paginate(
-                        Filters=[dict(Name="group-id", Values=[entry["GroupId"]])],
-                    )
-                    for entry in response["NetworkInterfaces"]
-                ],
-                tags=entry.get("Tags", ()),
-            )
-            for entry in itertools.chain(tagged_entries, named_entries)
         ]
+
+    def load(self, get_client):
+        self.load_bulk(get_client, [self])
+
+    @classmethod
+    def load_bulk(cls, get_client, resources):
+        client = get_client("ec2")
+        paginator = client.get_paginator("describe_security_groups")
+        eni_paginator = client.get_paginator("describe_network_interfaces")
+
+        security_groups_by_id = {
+            resource.id: resource
+            for resource in resources
+        }
+        security_group_ids = list(security_groups_by_id.keys())
+
+        for response in paginator.paginate(GroupIds=security_group_ids):
+            for entry in response.get("SecurityGroups", ()):
+                security_group = security_groups_by_id[entry["GroupId"]]
+
+                security_group.name = entry["GroupName"]
+                security_group.tags = _tag_dict(entry.get("Tags", ()))
+
+        for response in eni_paginator.paginate(
+            Filters=[
+                dict(Name="group-id", Values=security_group_ids),
+            ],
+        ):
+            for entry in response.get("NetworkInterfaces", ()):
+                network_interface = NetworkInterface(
+                    entry["Description"],
+                    entry["NetworkInterfaceId"],
+                    entry["Status"],
+                    tags=entry.get("TagSet", ()),
+                )
+                for group_entry in entry["Groups"]:
+                    security_group = security_groups_by_id.get(
+                        group_entry["GroupId"],
+                    )
+                    if not security_group:
+                        continue
+
+                    security_group.network_interfaces.append(network_interface)
+
+        for security_group in resources:
+            security_group.network_interfaces.sort(
+                key=lambda res: (res.name, res.id),
+            )
 
     def delete(self, get_client):
         client = get_client("ec2")
@@ -1466,6 +1502,7 @@ class StepFunction(Resource):
 class ResourceSet:
     def __init__(self, iterable=()):
         self._resources = {}
+        self._resources_by_class = defaultdict(set)
         for item in iterable:
             self.add(item)
 
@@ -1477,9 +1514,16 @@ class ResourceSet:
                 resource.name,
             )
             old = self._resources.pop(resource)
+            self._resources_by_class[resource.__class__].discard(resource)
             resource.tags.update(old.tags)
 
         self._resources[resource] = resource
+        self._resources_by_class[resource.__class__].add(resource)
+
+    def iter_by_class(self):
+        for key, values in self._resources_by_class.items():
+            if values:
+                yield (key, values)
 
     def __iter__(self):
         return iter(self._resources.values())
@@ -1630,7 +1674,12 @@ class CumulusDestroyer:
             for resource in self.gather_from(collector)
         )
         end = time.perf_counter()
+        log.debug("Time spent gathering before loading was %.1fs", end - start)
 
+        for cls, resources in resource_set.iter_by_class():
+            cls.load_bulk(self.client, resources)
+
+        end = time.perf_counter()
         log.debug("Total time gathering was %.1fs", end - start)
 
         return resource_set
@@ -1874,7 +1923,7 @@ def main(args=None):
     args = parser.parse_args(args=args)
 
     log.addHandler(logging.StreamHandler(sys.stdout))
-    level = max(logging.INFO - args.verbose * 10, 0)
+    level = max(logging.INFO - args.verbose * 10, 1)
     log.setLevel(level)
 
     destroyer = CumulusDestroyer(
