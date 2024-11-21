@@ -93,12 +93,16 @@ def cmd_curl(args: argparse.Namespace):
 
     api_client = ApiClient(client, function_name)
 
+    headers = {k: v for k, v in args.headers}
     response = api_client.request(
         path=args.url.path,
         body=args.data,
         params=args.url.params,
         method=args.method or ("POST" if args.data else "GET"),
-        headers={k: v for k, v in args.headers},
+        headers={
+            "Cumulus-API-Version": args.cumulus_api_version,
+            **headers,
+        },
     )
     response_payload = response.json()
 

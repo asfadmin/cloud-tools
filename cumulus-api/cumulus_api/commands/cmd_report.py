@@ -52,9 +52,10 @@ authentication to view hidden collections:
 
 
 class CumulusApiGranuleSource(GranuleSource):
-    def __init__(self, name: str, client: ApiClient):
+    def __init__(self, name: str, client: ApiClient, headers: dict = {}):
         super().__init__(name)
         self.client = client
+        self.headers = headers
 
     def get_granules(self, options: SearchOptions) -> List[GranuleInfo]:
         granules = SortedList()
@@ -76,6 +77,7 @@ class CumulusApiGranuleSource(GranuleSource):
         for response in self.client.paginate(
             method="GET",
             path="/granules",
+            headers=self.headers,
             params=params,
         ):
             response_payload = response.json()
@@ -212,7 +214,11 @@ def cmd_report(args: argparse.Namespace):
         ),
         tz=args.timezone,
         sources=[
-            CumulusApiGranuleSource("Cumulus", ApiClient(client, function_name)),
+            CumulusApiGranuleSource(
+                "Cumulus",
+                ApiClient(client, function_name),
+                headers={"Cumulus-API-Version": args.cumulus_api_version},
+            ),
             CMRGranuleSource(
                 "CMR",
                 asf_search_token=args.token,
