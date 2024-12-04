@@ -4,7 +4,6 @@ import json
 import logging
 import sys
 import urllib.parse
-from typing import Tuple
 
 import boto3
 from cumulus_api.request import ApiClient
@@ -24,7 +23,7 @@ def url(text: str):
     return parse_result
 
 
-def header(text: str) -> Tuple[str, str]:
+def header(text: str) -> tuple[str, str]:
     """
     Argparser type for parsing a header value
     """

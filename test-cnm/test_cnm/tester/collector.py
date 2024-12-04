@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, TypedDict
+from typing import Optional, Protocol, TypedDict
 
 import boto3
 
@@ -25,7 +25,7 @@ class TestInfo:
     collection: str
     data_version: Optional[str]
     name: str
-    files: List[FileDict]
+    files: list[FileDict]
     cnm_s: Optional[dict] = None
 
     def get_id(self) -> str:
@@ -36,7 +36,7 @@ class TestInfo:
 
 
 class TestCollector(Protocol):
-    def collect_tests(self, filters: List[str]) -> Dict[str, TestInfo]:
+    def collect_tests(self, filters: list[str]) -> dict[str, TestInfo]:
         ...
 
 
@@ -45,7 +45,7 @@ class BucketTestCollector:
         self.session = session
         self.test_bucket = bucket
 
-    def collect_tests(self, filters: List[str]) -> Dict[str, TestInfo]:
+    def collect_tests(self, filters: list[str]) -> dict[str, TestInfo]:
         client = self.session.client("s3")
         paginator = client.get_paginator("list_objects_v2")
 
@@ -91,7 +91,7 @@ class BucketTestCollector:
         }
 
 
-def _match_filters(filters: List[str], test: TestInfo) -> bool:
+def _match_filters(filters: list[str], test: TestInfo) -> bool:
     if not filters:
         return True
 

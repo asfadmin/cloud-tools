@@ -1,7 +1,7 @@
 import argparse
 import configparser
 from dataclasses import MISSING, dataclass, fields
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import boto3
 
@@ -26,7 +26,7 @@ class Config:
     @classmethod
     def from_file(
         cls,
-        filenames: Union[str, List[str]],
+        filenames: Union[str, list[str]],
         args: Optional[argparse.Namespace] = None,
     ) -> "Config":
         config = configparser.ConfigParser(default_section=None)

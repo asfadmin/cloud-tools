@@ -1,7 +1,7 @@
 import argparse
 import os
 from pathlib import Path
-from typing import List, cast
+from typing import cast
 
 from test_cnm.checksums import Checksums
 from test_cnm.config import Config
@@ -60,8 +60,8 @@ def cmd_upload(
 ):
     recursive: bool = args.recursive
 
-    resolved_paths: List[Path] = []
-    for path in cast(List[Path], args.paths):
+    resolved_paths: list[Path] = []
+    for path in cast(list[Path], args.paths):
         path = path.resolve()
 
         if not path.exists():

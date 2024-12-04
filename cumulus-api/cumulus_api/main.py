@@ -4,7 +4,7 @@ import logging
 import sys
 from importlib.metadata import Distribution
 from platform import python_version
-from typing import List, Optional
+from typing import Optional
 
 from cumulus_api.commands import cmd_curl, cmd_deploy
 
@@ -78,7 +78,7 @@ def add_common_args(parser: argparse._ActionsContainer):
     )
 
 
-def main(args: Optional[List[str]] = None):
+def main(args: Optional[list[str]] = None):
     parser = get_parser()
     pargs = parser.parse_args(args=args)
 

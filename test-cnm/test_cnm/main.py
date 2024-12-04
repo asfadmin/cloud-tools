@@ -13,7 +13,7 @@ import os
 import sys
 from importlib.metadata import Distribution
 from platform import python_version
-from typing import List, Optional
+from typing import Optional
 
 from test_cnm.commands import (
     cmd_list,
@@ -110,7 +110,7 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(args: Optional[List[str]] = None):
+def main(args: Optional[list[str]] = None):
     parser = get_parser()
     pargs = parser.parse_args(args=args)
 
