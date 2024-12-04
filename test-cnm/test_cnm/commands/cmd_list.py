@@ -54,10 +54,7 @@ def cmd_list(
         log.info("%s:", collection)
         for test in grouped_tests:
             prefix = f"{collection}/"
-            test_id = test.get_id()
-            # TODO(reweeden): Python3.9+ use 'removeprefix'
-            if test_id.startswith(prefix):
-                test_id = test_id[len(prefix):]
+            test_id = test.get_id().removeprefix(prefix)
             log.info("  - %s", test_id)
 
     log.info("\nTotals: %s Collections; %s Tests", len(tests_by_collection), len(tests))
