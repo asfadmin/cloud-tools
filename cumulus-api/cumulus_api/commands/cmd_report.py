@@ -3,7 +3,6 @@ import json
 import logging
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import List
 
 import boto3
 import dateparser
@@ -57,7 +56,7 @@ class CumulusApiGranuleSource(GranuleSource):
         self.client = client
         self.headers = headers
 
-    def get_granules(self, options: SearchOptions) -> List[GranuleInfo]:
+    def get_granules(self, options: SearchOptions) -> list[GranuleInfo]:
         granules = SortedList()
 
         params = {

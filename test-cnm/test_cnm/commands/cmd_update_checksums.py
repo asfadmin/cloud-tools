@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import List
 
 from test_cnm.checksums import CHECKSUM_PATTERN, Checksums, ChecksumWriter
 from test_cnm.config import Config
@@ -45,7 +44,7 @@ def cmd_update_checksums(
     args: argparse.Namespace,
     config: Config,
 ):
-    prefixes: List[str] = args.prefix
+    prefixes: list[str] = args.prefix
 
     session = config.session()
 

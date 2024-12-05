@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import List
 
 from test_cnm.tester.collector import TestCollector
 from test_cnm.tester.ingest_client import CnmIngestClient
@@ -19,7 +18,7 @@ class TestExecutor:
         self.ingest_client = ingest_client
         self.default_data_version = default_data_version
 
-    def run(self, filters: List[str]):
+    def run(self, filters: list[str]):
         # Collect
         tests = self.collector.collect_tests(filters)
 

@@ -51,8 +51,7 @@ def cmd_move(
         bucket = response["Name"]
         for entry in response.get("Contents", ()):
             key = entry["Key"]
-            # TODO(reweeden): Python3.9+ use 'removeprefix'
-            key_stripped = key[len(args.src):]
+            key_stripped = key.removeprefix(args.src)
 
             dst_key = args.dst + key_stripped
             log.info(
