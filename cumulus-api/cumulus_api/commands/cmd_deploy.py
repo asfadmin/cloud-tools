@@ -49,6 +49,7 @@ def deploy_pcrs(args: argparse.Namespace):
         "MATURITY": args.maturity,
     }
 
+    any_failed = False
     for path in discover_pcrs(args.path.resolve()):
         with open(path, "r") as f:
             text = substitute(f.read(), variables=variables)
@@ -99,6 +100,12 @@ def deploy_pcrs(args: argparse.Namespace):
         log.info("API response %s %s", status.value, status.phrase)
         if status != http.HTTPStatus.OK:
             log.info("%s", response_payload["body"])
+            any_failed = True
+
+    if any_failed:
+        raise SystemExit(
+            "One or more providers, collections or rules failed to deploy!",
+        )
 
 
 def discover_pcrs(path: Path):
