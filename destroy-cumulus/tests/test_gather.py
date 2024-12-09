@@ -14,11 +14,10 @@ from destroy_cumulus import (
 
 @pytest.fixture
 def mock_queues(get_client):
-    with moto.mock_sqs():
-        client = get_client("sqs")
-        q1 = client.create_queue(QueueName="test-queue")
-        q2 = client.create_queue(QueueName="red-herring")
-        yield q1, q2
+    client = get_client("sqs")
+    q1 = client.create_queue(QueueName="test-queue")
+    q2 = client.create_queue(QueueName="red-herring")
+    yield q1, q2
 
 
 @pytest.mark.slow
@@ -28,7 +27,7 @@ def test_gather_all_empty_prefix(monkeypatch):
     monkeypatch.setitem(Resource.TYPES, "states:activity", mock.create_autospec(Activity))
     # Mock all is very slow. Using it as a decorator causes the slowness to
     # affect pytest collection time.
-    with moto.mock_all():
+    with moto.mock_aws():
         destroyer = CumulusDestroyer(
             profile=None,
             name_matcher=NameMatcher(prefix=""),
@@ -38,7 +37,6 @@ def test_gather_all_empty_prefix(monkeypatch):
     assert len(resources) == 2
 
 
-@moto.mock_resourcegroupstaggingapi
 def test_gather_filter_queues(mock_queues):
     destroyer = CumulusDestroyer(
         profile=None,

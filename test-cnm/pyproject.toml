@@ -20,5 +20,4 @@ python = ">=3.9,<4"
 boto3 = "^1.28.76"
 
 [tool.poetry.group.dev.dependencies]
-moto = "^4.2.7"
-pytest = "^7.4.3"
+pytest = "^8.3.4"
