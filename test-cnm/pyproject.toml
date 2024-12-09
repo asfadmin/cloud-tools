@@ -16,8 +16,9 @@ tcnm = "test_cnm:main.main"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
+
 boto3 = "^1.28.76"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.3"
 moto = "^4.2.7"
+pytest = "^7.4.3"
