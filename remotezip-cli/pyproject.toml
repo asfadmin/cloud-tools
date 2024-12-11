@@ -15,10 +15,11 @@ rz = "remotezip_cli:main"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
+
 aws-requests-auth = "^0.4.3"
 boto3 = "^1.24.76"
 humanize = "^4.4.0"
 remotezip = "^0.9.4"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.3"
+pytest = "^8.3.4"

@@ -16,7 +16,10 @@ cumulus = "cumulus_api:main.main"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
+
+# Required
 boto3 = "^1.28.76"
+
 # Optional dependencies, opted in with below extras.
 cumulus-report = { git = "git@github.com:asfadmin/cumulus-report.git", optional = true}
 dateparser = { version = "^1.2.0", optional = true }

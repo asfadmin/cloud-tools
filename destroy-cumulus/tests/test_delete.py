@@ -1,12 +1,10 @@
-import moto
 import pytest
 from destroy_cumulus import Arn, CloudWatchEventRule
 
 
 @pytest.fixture
 def client_events(get_client):
-    with moto.mock_events():
-        yield get_client("events")
+    yield get_client("events")
 
 
 def test_delete_rule_targets(get_client, client_events):

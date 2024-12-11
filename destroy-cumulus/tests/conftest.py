@@ -3,6 +3,7 @@ import os
 
 import boto3
 import pytest
+from moto import mock_aws
 
 logging.getLogger("destroy_cumulus").setLevel(logging.DEBUG)
 logging.getLogger("botocore").setLevel(logging.WARNING)
@@ -21,4 +22,5 @@ def aws_credentials():
 
 @pytest.fixture(scope="session")
 def get_client():
-    return boto3.client
+    with mock_aws():
+        yield boto3.client
