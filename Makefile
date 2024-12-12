@@ -1,7 +1,8 @@
 PACKAGES := \
 	destroy-cumulus \
 	remotezip-cli \
-	test-cnm
+	test-cnm \
+	trigger-s3-event
 
 TOX_INIS := $(PACKAGES:%=%/tox.ini)
 
