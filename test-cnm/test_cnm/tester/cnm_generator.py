@@ -9,8 +9,16 @@ DATA_TYPE_MAP = {
     ".dataset.json": "metadata",
     ".h5": "data",
     ".iso.xml": "metadata",
+    ".jpg": "browse",
+    ".log": "metadata",
     ".md5": "metadata",
     ".met.json": "metadata",
+    ".nc": "data",
+    ".pdf": "qa",
+    ".png": "browse",
+    ".qa.h5": "qa",
+    ".rc.yaml": "metadata",
+    ".tif": "data",
     ".xml": "data",
 }
 
