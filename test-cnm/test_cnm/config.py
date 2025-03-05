@@ -30,15 +30,20 @@ class ConfigBase:
             raise ConfigError(f"environment '{env}' not found")
 
         section = config[env] if config.has_section(env) else {}
-        default = config[DEFAULT] if config.has_section(DEFAULT) else {}
+        default_section = config[DEFAULT] if config.has_section(DEFAULT) else {}
+
+        def _get_value(key: str, default=None):
+            if (val := options.get(key)) is not None:
+                return val
+            if (val := section.get(key)) is not None:
+                return val
+            if (val := default_section.get(key)) is not None:
+                return val
+
+            return default
 
         kwargs = {
-            field.name: (
-                options.get(field.name)
-                or section.get(field.name)
-                or default.get(field.name)
-                or field.default
-            )
+            field.name: _get_value(field.name, default=field.default)
             for field in fields(cls)
         }
         missing = [
@@ -54,22 +59,29 @@ class ConfigBase:
 
 @dataclass
 class ConfigBasic(ConfigBase):
-    # TODO(reweeden): Support default environment for cloudshell
-    profile: str
     test_bucket: str
+    profile: Optional[str] = None
 
     def session(self) -> boto3.Session:
         return boto3.Session(profile_name=self.profile)
 
 
 @dataclass
-class ConfigFull(ConfigBasic):
+class ConfigFull(ConfigBase):
+    # TODO(reweeden): In python3.10 dataclasses support keyword only arguments
+    # which would let us refactor this duplication
+    test_bucket: str
     cnm_ingest_queue: str
     cnm_response_queue: str
     provider: str
     default_data_version: str = "1.0"
     stack_name: Optional[str] = None
     trace: Optional[str] = None
+    # TODO(reweeden): python3.10 refactor duplication
+    profile: Optional[str] = None
+
+    def session(self) -> boto3.Session:
+        return boto3.Session(profile_name=self.profile)
 
     def cnm_ingest_queue_name(self) -> str:
         if self.stack_name and not self.cnm_ingest_queue.startswith(self.stack_name):
