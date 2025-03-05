@@ -1,7 +1,7 @@
 import argparse
 
 from test_cnm.checksums import Checksums
-from test_cnm.config import Config
+from test_cnm.config import ConfigFull
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
 from test_cnm.tester.executor import TestExecutor
@@ -24,7 +24,10 @@ def add_parser(
         nargs="*",
         default=[],
     )
-    parser_test.set_defaults(func=cmd_test)
+    parser_test.set_defaults(
+        func=cmd_test,
+        config_cls=ConfigFull,
+    )
 
     return parser_test
 
@@ -32,7 +35,7 @@ def add_parser(
 def cmd_test(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigFull,
 ):
     filters = args.filter
 

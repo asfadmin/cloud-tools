@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from test_cnm.checksums import CHECKSUM_PATTERN, Checksums, ChecksumWriter
-from test_cnm.config import Config
+from test_cnm.config import ConfigBasic
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +34,10 @@ def add_parser(
         nargs="*",
         default=[],
     )
-    parser_update_checksums.set_defaults(func=cmd_update_checksums)
+    parser_update_checksums.set_defaults(
+        func=cmd_update_checksums,
+        config_cls=ConfigBasic,
+    )
 
     return parser_update_checksums
 
@@ -42,7 +45,7 @@ def add_parser(
 def cmd_update_checksums(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigBasic,
 ):
     prefixes: list[str] = args.prefix
 

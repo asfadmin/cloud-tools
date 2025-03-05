@@ -2,7 +2,7 @@ import argparse
 import logging
 from collections import defaultdict
 
-from test_cnm.config import Config
+from test_cnm.config import ConfigBasic
 from test_cnm.tester.collector import BucketTestCollector
 
 log = logging.getLogger(__name__)
@@ -25,7 +25,10 @@ def add_parser(
         nargs="*",
         default=[],
     )
-    parser_list.set_defaults(func=cmd_list)
+    parser_list.set_defaults(
+        func=cmd_list,
+        config_cls=ConfigBasic,
+    )
 
     return parser_list
 
@@ -33,7 +36,7 @@ def add_parser(
 def cmd_list(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigBasic,
 ):
     filters = args.filter
 

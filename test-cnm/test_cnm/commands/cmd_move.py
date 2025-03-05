@@ -2,7 +2,7 @@ import argparse
 import logging
 
 from test_cnm.checksums import Checksums
-from test_cnm.config import Config
+from test_cnm.config import ConfigBasic
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +26,10 @@ def add_parser(
         "dst",
         help="Prefix to move products to",
     )
-    parser_move.set_defaults(func=cmd_move)
+    parser_move.set_defaults(
+        func=cmd_move,
+        config_cls=ConfigBasic,
+    )
 
     return parser_move
 
@@ -34,7 +37,7 @@ def add_parser(
 def cmd_move(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigBasic,
 ):
     session = config.session()
 

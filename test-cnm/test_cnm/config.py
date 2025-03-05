@@ -13,22 +13,13 @@ class ConfigError(Exception):
 
 
 @dataclass
-class Config:
-    profile: str
-    test_bucket: str
-    cnm_ingest_queue: str
-    cnm_response_queue: str
-    provider: str
-    default_data_version: str = "1.0"
-    stack_name: Optional[str] = None
-    trace: Optional[str] = None
-
+class ConfigBase:
     @classmethod
     def from_file(
         cls,
         filenames: Union[str, list[str]],
         args: Optional[argparse.Namespace] = None,
-    ) -> "Config":
+    ) -> "ConfigBase":
         config = configparser.ConfigParser(default_section=None)
         config.read(filenames)
 
@@ -60,8 +51,25 @@ class Config:
 
         return cls(**kwargs)
 
+
+@dataclass
+class ConfigBasic(ConfigBase):
+    # TODO(reweeden): Support default environment for cloudshell
+    profile: str
+    test_bucket: str
+
     def session(self) -> boto3.Session:
         return boto3.Session(profile_name=self.profile)
+
+
+@dataclass
+class ConfigFull(ConfigBasic):
+    cnm_ingest_queue: str
+    cnm_response_queue: str
+    provider: str
+    default_data_version: str = "1.0"
+    stack_name: Optional[str] = None
+    trace: Optional[str] = None
 
     def cnm_ingest_queue_name(self) -> str:
         if self.stack_name and not self.cnm_ingest_queue.startswith(self.stack_name):

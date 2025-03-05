@@ -23,7 +23,6 @@ from test_cnm.commands import (
     cmd_update_checksums,
     cmd_upload,
 )
-from test_cnm.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +74,7 @@ def get_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--cnm-response-queue",
-        help="Queue name to poll for CNM-R responses"
+        help="Queue name to poll for CNM-R responses",
     )
     parser.add_argument(
         "--provider",
@@ -138,7 +137,8 @@ def main(args: Optional[list[str]] = None):
 
     root_logger.addHandler(logging.StreamHandler(sys.stdout))
 
-    config = Config.from_file(
+    config_cls = pargs.config_cls
+    config = config_cls.from_file(
         ["testcnm.cfg", os.path.expanduser("~/testcnm.cfg")],
         args=pargs,
     )

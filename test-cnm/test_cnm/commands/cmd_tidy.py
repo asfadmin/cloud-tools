@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from test_cnm.config import Config
+from test_cnm.config import ConfigBasic
 
 log = logging.getLogger(__name__)
 
@@ -9,22 +9,25 @@ log = logging.getLogger(__name__)
 def add_parser(
     subparsers: argparse._SubParsersAction,
 ) -> argparse.ArgumentParser:
-    parser_list = subparsers.add_parser(
+    parser_tidy = subparsers.add_parser(
         "tidy",
         help=(
             "Tidy the test bucket by removing 0 byte 'folders' created by "
             "the AWS console"
         ),
     )
-    parser_list.set_defaults(func=cmd_tidy)
+    parser_tidy.set_defaults(
+        func=cmd_tidy,
+        config_cls=ConfigBasic,
+    )
 
-    return parser_list
+    return parser_tidy
 
 
 def cmd_tidy(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigBasic,
 ):
     session = config.session()
 

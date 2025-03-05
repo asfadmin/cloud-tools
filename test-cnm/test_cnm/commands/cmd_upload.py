@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import cast
 
 from test_cnm.checksums import Checksums
-from test_cnm.config import Config
+from test_cnm.config import ConfigBasic
 from test_cnm.uploader import Uploader
 
 
@@ -48,7 +48,10 @@ def add_parser(
         action="store_true",
         default=False,
     )
-    parser_upload.set_defaults(func=cmd_upload)
+    parser_upload.set_defaults(
+        func=cmd_upload,
+        config_cls=ConfigBasic,
+    )
 
     return parser_upload
 
@@ -56,7 +59,7 @@ def add_parser(
 def cmd_upload(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigBasic,
 ):
     recursive: bool = args.recursive
 
