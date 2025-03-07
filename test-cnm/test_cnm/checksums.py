@@ -83,6 +83,13 @@ class Checksums:
                 exc_info=True,
             )
 
+    def __enter__(self) -> "Checksums":
+        self.load()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.save()
+
     def __contains__(self, key: str) -> bool:
         return key in self.checksums
 

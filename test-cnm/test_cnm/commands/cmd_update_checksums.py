@@ -56,52 +56,48 @@ def cmd_update_checksums(
         with open(args.cnm_file) as f:
             cnm_file = json.load(f)
 
-    checksums = Checksums(session, config.test_bucket)
-    checksums.load()
+    with Checksums(session, config.test_bucket) as checksums:
+        client = session.client("s3")
+        paginator = client.get_paginator("list_objects_v2")
 
-    client = session.client("s3")
-    paginator = client.get_paginator("list_objects_v2")
+        for response in paginator.paginate(Bucket=config.test_bucket):
+            bucket = response["Name"]
+            for entry in response.get("Contents", ()):
+                key = entry["Key"]
 
-    for response in paginator.paginate(Bucket=config.test_bucket):
-        bucket = response["Name"]
-        for entry in response.get("Contents", ()):
-            key = entry["Key"]
+                if prefixes and not any(
+                    key.startswith(prefix) for prefix in prefixes
+                ):
+                    continue
 
-            if prefixes and not any(
-                key.startswith(prefix) for prefix in prefixes
-            ):
-                continue
+                md5sum = get_md5sum(client, cnm_file, bucket, key)
+                old_md5sum = "..."
 
-            md5sum = get_md5sum(client, cnm_file, bucket, key)
-            old_md5sum = "..."
+                if key in checksums:
+                    old_md5sum = checksums[key]
 
-            if key in checksums:
-                old_md5sum = checksums[key]
+                log.debug(
+                    "Updating checksum for s3://%s/%s %s -> %s",
+                    bucket,
+                    key,
+                    old_md5sum,
+                    md5sum,
+                )
 
-            log.debug(
-                "Updating checksum for s3://%s/%s %s -> %s",
-                bucket,
-                key,
-                old_md5sum,
-                md5sum,
-            )
+                m = CHECKSUM_PATTERN.match(entry["ETag"])
+                if m:
+                    etag_md5sum = m.group(1)
+                    if etag_md5sum != md5sum:
+                        log.warning(
+                            "Computed checksum for s3://%s/%s did not match "
+                            "etag [computed: %s, etag: %s]",
+                            bucket,
+                            key,
+                            md5sum,
+                            etag_md5sum,
+                        )
 
-            m = CHECKSUM_PATTERN.match(entry["ETag"])
-            if m:
-                etag_md5sum = m.group(1)
-                if etag_md5sum != md5sum:
-                    log.warning(
-                        "Computed checksum for s3://%s/%s did not match etag "
-                        "[computed: %s, etag: %s]",
-                        bucket,
-                        key,
-                        md5sum,
-                        etag_md5sum,
-                    )
-
-            checksums[key] = md5sum
-
-    checksums.save()
+                checksums[key] = md5sum
 
 
 def get_md5sum(client, cnm_file, bucket: str, key: str):

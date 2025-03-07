@@ -14,7 +14,7 @@ class Uploader:
         self,
         session: boto3.Session,
         bucket: str,
-        checksums: Checksums
+        checksums: Checksums,
     ):
         self.session = session
         self.bucket = bucket

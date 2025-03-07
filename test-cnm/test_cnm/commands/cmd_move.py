@@ -41,35 +41,31 @@ def cmd_move(
 ):
     session = config.session()
 
-    checksums = Checksums(session, config.test_bucket)
-    checksums.load()
+    with Checksums(session, config.test_bucket) as checksums:
+        client = session.client("s3")
+        paginator = client.get_paginator("list_objects_v2")
 
-    client = session.client("s3")
-    paginator = client.get_paginator("list_objects_v2")
+        for response in paginator.paginate(
+            Bucket=config.test_bucket,
+            Prefix=args.src,
+        ):
+            bucket = response["Name"]
+            for entry in response.get("Contents", ()):
+                key = entry["Key"]
+                key_stripped = key.removeprefix(args.src)
 
-    for response in paginator.paginate(
-        Bucket=config.test_bucket,
-        Prefix=args.src,
-    ):
-        bucket = response["Name"]
-        for entry in response.get("Contents", ()):
-            key = entry["Key"]
-            key_stripped = key.removeprefix(args.src)
-
-            dst_key = args.dst + key_stripped
-            log.info(
-                "Moving %s bytes s3://%s/%s to s3://%s/%s",
-                entry["Size"],
-                bucket,
-                key,
-                bucket,
-                dst_key,
-            )
-            if key in checksums:
-                md5sum = checksums[key]
-                checksums[dst_key] = md5sum
-                del checksums[key]
-            client.copy({"Bucket": bucket, "Key": key}, bucket, dst_key)
-            client.delete_object(Bucket=bucket, Key=key)
-
-    checksums.save()
+                dst_key = args.dst + key_stripped
+                log.info(
+                    "Moving %s bytes s3://%s/%s to s3://%s/%s",
+                    entry["Size"],
+                    bucket,
+                    key,
+                    bucket,
+                    dst_key,
+                )
+                if key in checksums:
+                    md5sum = checksums[key]
+                    checksums[dst_key] = md5sum
+                    del checksums[key]
+                client.copy({"Bucket": bucket, "Key": key}, bucket, dst_key)
+                client.delete_object(Bucket=bucket, Key=key)

@@ -73,30 +73,27 @@ def cmd_upload(
         resolved_paths.append(path)
 
     session = config.session()
-    checksums = Checksums(session, config.test_bucket)
-    uploader = Uploader(session, config.test_bucket, checksums)
+    with Checksums(session, config.test_bucket) as checksums:
+        uploader = Uploader(session, config.test_bucket, checksums)
 
-    checksums.load()
-    for path in resolved_paths:
-        if not recursive:
-            uploader.upload_file(
-                path,
-                collection=args.collection,
-                data_version=args.data_version,
-                product=args.product,
-            )
-        else:
-            for root, _, files in os.walk(path):
-                root_path = Path(root)
-                for file in files:
-                    if file == ".DS_Store":
-                        continue
+        for path in resolved_paths:
+            if not recursive:
+                uploader.upload_file(
+                    path,
+                    collection=args.collection,
+                    data_version=args.data_version,
+                    product=args.product,
+                )
+            else:
+                for root, _, files in os.walk(path):
+                    root_path = Path(root)
+                    for file in files:
+                        if file == ".DS_Store":
+                            continue
 
-                    uploader.upload_file(
-                        root_path / file,
-                        collection=args.collection,
-                        data_version=args.data_version,
-                        product=args.product,
-                    )
-
-    checksums.save()
+                        uploader.upload_file(
+                            root_path / file,
+                            collection=args.collection,
+                            data_version=args.data_version,
+                            product=args.product,
+                        )
