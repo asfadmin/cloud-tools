@@ -1,6 +1,7 @@
 import argparse
 import logging
 from collections import defaultdict
+from pathlib import Path
 
 from test_cnm.config import ConfigBasic
 from test_cnm.tester.collector import BucketTestCollector
@@ -15,6 +16,11 @@ def add_parser(
         "list",
         aliases=["ls"],
         help="List available test products",
+    )
+    parser_list.add_argument(
+        "--files",
+        help="Display file list along with each test",
+        action="store_true",
     )
     parser_list.add_argument(
         "filter",
@@ -58,6 +64,11 @@ def cmd_list(
         for test in grouped_tests:
             prefix = f"{collection}/"
             test_id = test.get_id().removeprefix(prefix)
-            log.info("  - %s", test_id)
+            log.info("  - %s (%d files)", test_id, len(test.files))
+            if args.files:
+                last_idx = len(test.files) - 1
+                for i, file in enumerate(test.files):
+                    bar = "└" if i == last_idx else "├"
+                    log.info("    %s── %s", bar, Path(file["Key"]).name)
 
     log.info("\nTotals: %s Collections; %s Tests", len(tests_by_collection), len(tests))
