@@ -72,7 +72,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument(
         "--bucket",
-        help="S3 bucket to scan for logs",
+        help="S3 bucket to scan",
         required=True,
     )
     parser.add_argument(
