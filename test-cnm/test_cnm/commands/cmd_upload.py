@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import cast
 
 from test_cnm.checksums import Checksums
-from test_cnm.config import Config
+from test_cnm.config import ConfigBasic
 from test_cnm.uploader import Uploader
 
 
@@ -48,7 +48,10 @@ def add_parser(
         action="store_true",
         default=False,
     )
-    parser_upload.set_defaults(func=cmd_upload)
+    parser_upload.set_defaults(
+        func=cmd_upload,
+        config_cls=ConfigBasic,
+    )
 
     return parser_upload
 
@@ -56,7 +59,7 @@ def add_parser(
 def cmd_upload(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    config: Config,
+    config: ConfigBasic,
 ):
     recursive: bool = args.recursive
 
@@ -70,30 +73,27 @@ def cmd_upload(
         resolved_paths.append(path)
 
     session = config.session()
-    checksums = Checksums(session, config.test_bucket)
-    uploader = Uploader(session, config.test_bucket, checksums)
+    with Checksums(session, config.test_bucket) as checksums:
+        uploader = Uploader(session, config.test_bucket, checksums)
 
-    checksums.load()
-    for path in resolved_paths:
-        if not recursive:
-            uploader.upload_file(
-                path,
-                collection=args.collection,
-                data_version=args.data_version,
-                product=args.product,
-            )
-        else:
-            for root, _, files in os.walk(path):
-                root_path = Path(root)
-                for file in files:
-                    if file == ".DS_Store":
-                        continue
+        for path in resolved_paths:
+            if not recursive:
+                uploader.upload_file(
+                    path,
+                    collection=args.collection,
+                    data_version=args.data_version,
+                    product=args.product,
+                )
+            else:
+                for root, _, files in os.walk(path):
+                    root_path = Path(root)
+                    for file in files:
+                        if file == ".DS_Store":
+                            continue
 
-                    uploader.upload_file(
-                        root_path / file,
-                        collection=args.collection,
-                        data_version=args.data_version,
-                        product=args.product,
-                    )
-
-    checksums.save()
+                        uploader.upload_file(
+                            root_path / file,
+                            collection=args.collection,
+                            data_version=args.data_version,
+                            product=args.product,
+                        )

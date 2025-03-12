@@ -1,11 +1,11 @@
 import argparse
 
 import pytest
-from test_cnm.config import Config, ConfigError
+from test_cnm.config import ConfigBasic, ConfigError, ConfigFull
 
 
 def test_from_file_default(data_path):
-    config = Config.from_file(data_path / "testcnm.cfg")
+    config = ConfigBasic.from_file(data_path / "testcnm.cfg")
 
     assert config.profile == "sbx"
     assert config.test_bucket == "asf-cumulus-dev-tests-e2e"
@@ -14,7 +14,7 @@ def test_from_file_default(data_path):
 def test_from_file_args_override(data_path):
     args = argparse.Namespace()
     args.test_bucket = "override-test-bucket"
-    config = Config.from_file(data_path / "testcnm.cfg", args)
+    config = ConfigBasic.from_file(data_path / "testcnm.cfg", args)
 
     assert config.profile == "sbx"
     assert config.test_bucket == "override-test-bucket"
@@ -23,14 +23,14 @@ def test_from_file_args_override(data_path):
 def test_from_file_environment(data_path):
     args = argparse.Namespace()
     args.environment = "sitenv"
-    config = Config.from_file(data_path / "testcnm.cfg", args)
+    config = ConfigBasic.from_file(data_path / "testcnm.cfg", args)
 
     assert config.profile == "sit"
     assert config.test_bucket == "asf-cumulus-int-tests-e2e"
 
 
 def test_from_file_inheritance(data_path):
-    config = Config.from_file([
+    config = ConfigBasic.from_file([
         data_path / "home_testcnm.cfg",
         data_path / "partial_testcnm.cfg"
     ])
@@ -44,7 +44,7 @@ def test_from_file_empty(data_path):
         ConfigError,
         match="environment 'default' not found"
     ):
-        Config.from_file(data_path / "empty.cfg")
+        ConfigBasic.from_file(data_path / "empty.cfg")
 
 
 def test_from_file_nonexistent(data_path):
@@ -52,11 +52,11 @@ def test_from_file_nonexistent(data_path):
         ConfigError,
         match="environment 'default' not found"
     ):
-        Config.from_file(data_path / "does_not_exist.cfg")
+        ConfigBasic.from_file(data_path / "does_not_exist.cfg")
 
 
 def test_cnm_ingest_queue_name_full_no_stack_name():
-    config = Config(
+    config = ConfigFull(
         profile="",
         test_bucket="",
         cnm_ingest_queue="sds-n-cumulus-dev-nisar-workflow-queue",
@@ -69,7 +69,7 @@ def test_cnm_ingest_queue_name_full_no_stack_name():
 
 
 def test_cnm_ingest_queue_name_full_stack_name_prefix():
-    config = Config(
+    config = ConfigFull(
         profile="",
         test_bucket="",
         cnm_ingest_queue="sds-n-cumulus-dev-nisar-workflow-queue",
@@ -82,7 +82,7 @@ def test_cnm_ingest_queue_name_full_stack_name_prefix():
 
 
 def test_cnm_ingest_queue_name_postfix_with_stack_name():
-    config = Config(
+    config = ConfigFull(
         profile="",
         test_bucket="",
         cnm_ingest_queue="nisar-workflow-queue",
