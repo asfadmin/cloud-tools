@@ -5,7 +5,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import boto3
 from cumulus_api.request import ApiClient
@@ -119,18 +119,24 @@ def discover_pcrs(path: Path):
             yield from discover_pcrs(path / sub_path)
 
 
-def get_object_type(obj: dict) -> Optional[str]:
-    if "workflow" in obj:
+def get_object_type(obj: Any) -> Optional[str]:
+    if not isinstance(obj, dict):
+        return None
+
+    if "rule" in obj and "workflow" in obj:
         return "rules"
-    elif "granuleId" in obj:
+    elif "granuleId" in obj and "granuleIdExtraction" in obj:
         return "collections"
-    elif "id" in obj:
+    elif "id" in obj and "protocol" in obj and "host" in obj:
         return "providers"
 
     return None
 
 
-def get_object_id(obj: dict) -> Optional[str]:
+def get_object_id(obj: Any) -> Optional[str]:
+    if not isinstance(obj, dict):
+        return None
+
     object_id = obj.get("id") or obj.get("name") or None
     if not object_id:
         return None
