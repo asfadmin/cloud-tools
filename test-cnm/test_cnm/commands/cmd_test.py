@@ -7,6 +7,8 @@ from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
 from test_cnm.tester.executor import TestExecutor
 from test_cnm.tester.ingest_client import CnmIngestClient
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 log = logging.getLogger(__name__)
 
@@ -68,4 +70,32 @@ def cmd_test(
     )
 
     log.info("Executing tests on %s", config.stack_name)
-    executor.run(filters)
+
+    test_run = executor.new_test_run(filters)
+    try:
+        test_run.collect_tests()
+
+        with logging_redirect_tqdm():
+            with tqdm(
+                total=len(test_run.tests),
+                miniters=1,
+                leave=False,
+                desc=config.stack_name,
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} started ",
+            ) as t:
+                for _ in test_run.iter_start_tests():
+                    t.update()
+
+            with tqdm(
+                total=len(test_run.tests),
+                miniters=1,
+                leave=False,
+                desc=config.stack_name,
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} finished ",
+            ) as t:
+                for _ in test_run.iter_responses():
+                    t.update()
+    except KeyboardInterrupt:
+        test_run.log_summary()
+    else:
+        test_run.log_summary()
