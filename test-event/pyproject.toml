@@ -1,0 +1,20 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "test-event"
+version = "0.1.0"
+description = "A helper tool for triggering event-based ingest"
+authors = ["McKade Sorensen <dmsorensen@alaska.edu>"]
+readme = "README.md"
+packages = [{include = "test_event"}]
+
+[tool.poetry.scripts]
+test-event = "test_event:main.main"
+tevent = "test_event:main.main"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4"
+
+boto3 = "^1.28.76"
