@@ -20,7 +20,7 @@ from test_cnm.commands import (
     cmd_move,
     cmd_test,
     cmd_tidy,
-    cmd_update_checksums,
+    cmd_update_metadata,
     cmd_upload,
 )
 
@@ -103,7 +103,7 @@ def get_parser() -> argparse.ArgumentParser:
     cmd_move.add_parser(subparsers)
     cmd_test.add_parser(subparsers)
     cmd_tidy.add_parser(subparsers)
-    cmd_update_checksums.add_parser(subparsers)
+    cmd_update_metadata.add_parser(subparsers)
     cmd_upload.add_parser(subparsers)
 
     return parser

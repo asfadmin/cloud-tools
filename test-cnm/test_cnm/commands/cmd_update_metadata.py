@@ -14,14 +14,14 @@ log = logging.getLogger(__name__)
 def add_parser(
     subparsers: argparse._SubParsersAction,
 ) -> argparse.ArgumentParser:
-    parser_update_checksums = subparsers.add_parser(
-        "update-checksums",
+    parser_update_metadata = subparsers.add_parser(
+        "update-metadata",
         help=(
             "Update metadata file for existing products. Checksums can be "
             "parsed from a CNM message or calculated by downloading the file."
         ),
     )
-    parser_update_checksums.add_argument(
+    parser_update_metadata.add_argument(
         "--cnm-file",
         help=(
             "Path to a JSON file containing one or more CNM messages to read "
@@ -29,26 +29,26 @@ def add_parser(
         ),
         type=Path,
     )
-    parser_update_checksums.add_argument(
+    parser_update_metadata.add_argument(
         "--skip-type",
         help="Do not update the 'type' field for files",
         action="store_true",
     )
-    parser_update_checksums.add_argument(
+    parser_update_metadata.add_argument(
         "prefix",
         help="Prefix to filter keys by",
         nargs="*",
         default=[],
     )
-    parser_update_checksums.set_defaults(
-        func=cmd_update_checksums,
+    parser_update_metadata.set_defaults(
+        func=cmd_update_metadata,
         config_cls=ConfigBasic,
     )
 
-    return parser_update_checksums
+    return parser_update_metadata
 
 
-def cmd_update_checksums(
+def cmd_update_metadata(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
     config: ConfigBasic,

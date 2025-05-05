@@ -51,7 +51,7 @@ Each S3 object key maps to a set of metadata corresponding to keys in the CNM
 `product.files` list.
 
 Management of the `metadata.json` file is done through the `upload` and
-`update-checksums` commands for convenience. See the `--help` output of each
+`update-metadata` commands for convenience. See the `--help` output of each
 respective command for usage information.
 
 #### Checksums
