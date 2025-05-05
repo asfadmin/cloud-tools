@@ -1,8 +1,8 @@
 import argparse
 import logging
 
-from test_cnm.checksums import Checksums
 from test_cnm.config import ConfigFull
+from test_cnm.metadata import Metadata
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
 from test_cnm.tester.executor import TestExecutor
@@ -46,8 +46,8 @@ def cmd_test(
 
     session = config.session()
 
-    checksums = Checksums(session, config.test_bucket)
-    checksums.load()
+    metadata = Metadata(session, config.test_bucket)
+    metadata.load()
 
     collector = BucketTestCollector(
         session,
@@ -58,7 +58,7 @@ def cmd_test(
         make_cnm_s=CnmSGenerator(
             provider=args.provider or "ASF-TESTCNM",
             trace=config.trace,
-            checksums=checksums,
+            metadata=metadata,
         ),
         start_queue=config.cnm_ingest_queue_name(),
         response_queue=config.cnm_response_queue_name(),

@@ -4,8 +4,8 @@ import json
 import logging
 from pathlib import Path
 
-from test_cnm.checksums import CHECKSUM_PATTERN, Checksums, ChecksumWriter
 from test_cnm.config import ConfigBasic
+from test_cnm.metadata import CHECKSUM_PATTERN, ChecksumWriter, Metadata
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def add_parser(
     parser_update_checksums = subparsers.add_parser(
         "update-checksums",
         help=(
-            "Update checksums file for existing products. Checksums can be "
+            "Update metadata file for existing products. Checksums can be "
             "parsed from a CNM message or calculated by downloading the file."
         ),
     )
@@ -56,7 +56,7 @@ def cmd_update_checksums(
         with open(args.cnm_file) as f:
             cnm_file = json.load(f)
 
-    with Checksums(session, config.test_bucket) as checksums:
+    with Metadata(session, config.test_bucket) as metadata:
         client = session.client("s3")
         paginator = client.get_paginator("list_objects_v2")
 
@@ -73,8 +73,8 @@ def cmd_update_checksums(
                 md5sum = get_md5sum(client, cnm_file, bucket, key)
                 old_md5sum = "..."
 
-                if key in checksums:
-                    old_md5sum = checksums[key]
+                if key in metadata:
+                    old_md5sum = metadata[key]["checksum"]
 
                 log.debug(
                     "Updating checksum for s3://%s/%s %s -> %s",
@@ -97,7 +97,7 @@ def cmd_update_checksums(
                             etag_md5sum,
                         )
 
-                checksums[key] = md5sum
+                metadata[key]["checksum"] = md5sum
 
 
 def get_md5sum(client, cnm_file, bucket: str, key: str):

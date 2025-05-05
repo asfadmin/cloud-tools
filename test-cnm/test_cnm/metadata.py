@@ -13,24 +13,24 @@ log = logging.getLogger(__name__)
 CHECKSUM_PATTERN = re.compile(r'^"([\da-f]{32})"$')
 
 
-class Checksums:
+class Metadata:
     def __init__(
         self,
         session: boto3.Session,
         bucket: str,
-        key: str = "checksums.json"
+        key: str = "metadata.json",
     ):
         self.session = session
         self.bucket = bucket
         self.key = key
 
-        self.checksums = {}
+        self.metadata = {}
 
     def load(self):
         client = self.session.client("s3")
 
         log.debug(
-            "Loading checksums file from s3://%s/%s",
+            "Loading metadata file from s3://%s/%s",
             self.bucket,
             self.key,
         )
@@ -43,11 +43,11 @@ class Checksums:
                     Key=self.key,
                 )
                 buf.seek(0)
-                self.checksums = json.load(buf)
+                self.metadata = json.load(buf)
         except Exception as e:
-            log.error("Failed to load checksums file: %s", e)
+            log.error("Failed to load metadata file: %s", e)
             log.debug(
-                "Error loading checksum file from s3://%s/%s",
+                "Error loading metadata file from s3://%s/%s",
                 self.bucket,
                 self.key,
                 exc_info=True,
@@ -57,7 +57,7 @@ class Checksums:
         client = self.session.client("s3")
 
         log.debug(
-            "Saving checksums file to s3://%s/%s",
+            "Saving metadata file to s3://%s/%s",
             self.bucket,
             self.key,
         )
@@ -67,7 +67,7 @@ class Checksums:
             StreamWriter = codecs.getwriter("utf-8")
 
             with io.BytesIO() as buf:
-                json.dump(self.checksums, StreamWriter(buf))
+                json.dump(self.metadata, StreamWriter(buf))
                 buf.seek(0)
                 client.upload_fileobj(
                     Fileobj=buf,
@@ -83,7 +83,7 @@ class Checksums:
                 exc_info=True,
             )
 
-    def __enter__(self) -> "Checksums":
+    def __enter__(self) -> "Metadata":
         self.load()
         return self
 
@@ -91,20 +91,19 @@ class Checksums:
         self.save()
 
     def __contains__(self, key: str) -> bool:
-        return key in self.checksums
+        return key in self.metadata
 
     def __delitem__(self, key: str):
-        del self.checksums[key]
+        del self.metadata[key]
 
-    def __getitem__(self, key: str) -> str:
-        return self.checksums[key]["checksum"]
+    def __getitem__(self, key: str) -> dict:
+        if key not in self.metadata:
+            self.metadata[key] = {}
 
-    def __setitem__(self, key: str, checksum: str):
-        if key not in self.checksums:
-            self.checksums[key] = {}
+        return self.metadata[key]
 
-        self.checksums[key]["checksum"] = checksum
-        self.checksums[key]["checksumType"] = "md5"
+    def __setitem__(self, key: str, value: dict):
+        self.metadata[key] = value
 
 
 class ChecksumReaderProxy:

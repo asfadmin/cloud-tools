@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
-from test_cnm.checksums import CHECKSUM_PATTERN, Checksums
+from test_cnm.metadata import CHECKSUM_PATTERN, Metadata
 
 DATA_TYPE_MAP = {
     ".context.json": "metadata",
@@ -30,11 +30,11 @@ class CnmSGenerator:
         self,
         provider: str,
         trace: Optional[str] = None,
-        checksums: Optional[Checksums] = None,
+        metadata: Optional[Metadata] = None,
     ):
         self.provider = provider
         self.trace = trace
-        self.checksums = checksums
+        self.metadata = metadata
 
     def __call__(
         self,
@@ -83,8 +83,8 @@ class CnmSGenerator:
 
     def _get_checksum(self, file: dict):
         key = file["Key"]
-        if self.checksums and key in self.checksums:
-            return self.checksums[key]
+        if self.metadata and key in self.metadata:
+            return self.metadata[key]["checksum"]
 
         m = CHECKSUM_PATTERN.match(file["ETag"])
         if m:
