@@ -76,18 +76,15 @@ def cmd_update_metadata(
                 ):
                     continue
 
-                md5sum = get_md5sum(client, cnm_file, bucket, key)
-                old_md5sum = "..."
+                cnm_file_obj = _find_matching_cnm_file_obj(cnm_file, key)
 
-                if key in metadata:
-                    old_md5sum = metadata[key]["checksum"]
-
-                log.debug(
-                    "Updating checksum for s3://%s/%s %s -> %s",
+                md5sum = update_property(
+                    metadata,
+                    "checksum",
                     bucket,
                     key,
-                    old_md5sum,
-                    md5sum,
+                    "...",
+                    lambda _: get_md5sum(client, cnm_file_obj, bucket, key),
                 )
 
                 m = CHECKSUM_PATTERN.match(entry["ETag"])
@@ -103,51 +100,67 @@ def cmd_update_metadata(
                             etag_md5sum,
                         )
 
-                metadata[key]["checksum"] = md5sum
-
                 if not args.skip_type:
-                    old_cnm_type = "null"
-                    if key in metadata:
-                        old_cnm_type = metadata[key].get("type", "null")
-
-                    cnm_type = get_type(cnm_file, bucket, key, old_cnm_type)
-
-                    log.debug(
-                        "Updating type for s3://%s/%s %s -> %s",
+                    update_property(
+                        metadata,
+                        "type",
                         bucket,
                         key,
-                        old_cnm_type,
-                        cnm_type,
+                        "null",
+                        lambda old_value: get_type(cnm_file_obj, bucket, key, old_value),
                     )
-                    if cnm_type is not None:
-                        metadata[key]["type"] = cnm_type
-                    else:
-                        metadata.delete(key, "type")
 
 
+def update_property(
+    metadata: Metadata,
+    property: str,
+    bucket: str,
+    key: str,
+    old_value: str,
+    get_value,
+):
+    if key in metadata:
+        old_value = metadata[key][property]
 
-def get_md5sum(client, cnm_file, bucket: str, key: str):
-    if cnm_file:
-        file_obj = _find_matching_cnm_file_obj(cnm_file, key)
-        if file_obj and "checksum" in file_obj:
-            checksum_type = file_obj.get("checksumType")
-            checksum = file_obj["checksum"]
+    new_value = get_value(old_value)
 
-            if checksum_type and checksum_type != "md5":
-                log.debug(
-                    "Skipping checksum %s for s3://%s/%s because it has type %s",
-                    checksum,
-                    bucket,
-                    key,
-                    checksum_type,
-                )
-            else:
-                log.info(
-                    "Using checksum from CNM file for s3://%s/%s",
-                    bucket,
-                    key,
-                )
-                return checksum
+    log.debug(
+        "Updating %s for s3://%s/%s %s -> %s",
+        property,
+        bucket,
+        key,
+        old_value,
+        new_value,
+    )
+
+    if new_value is not None:
+        metadata[key][property] = new_value
+    else:
+        metadata.delete(key, property)
+
+    return new_value
+
+
+def get_md5sum(client, cnm_file_obj, bucket: str, key: str) -> str:
+    if cnm_file_obj and "checksum" in cnm_file_obj:
+        checksum_type = cnm_file_obj.get("checksumType")
+        checksum = cnm_file_obj["checksum"]
+
+        if checksum_type and checksum_type != "md5":
+            log.debug(
+                "Skipping checksum %s for s3://%s/%s because it has type %s",
+                checksum,
+                bucket,
+                key,
+                checksum_type,
+            )
+        else:
+            log.info(
+                "Using checksum from CNM file for s3://%s/%s",
+                bucket,
+                key,
+            )
+            return checksum
 
     log.info("Computing checksum for s3://%s/%s", bucket, key)
 
@@ -160,24 +173,26 @@ def get_md5sum(client, cnm_file, bucket: str, key: str):
     return md5.hexdigest()
 
 
-def get_type(cnm_file, bucket, key: str, old_cnm_type: str) -> Optional[str]:
-    if cnm_file:
-        file_obj = _find_matching_cnm_file_obj(cnm_file, key)
-        if file_obj and "type" in file_obj:
-            cnm_type = file_obj["type"]
-            log.info(
-                "Using type from CNM file for s3://%s/%s",
-                bucket,
-                key,
-            )
-            return cnm_type
+def get_type(cnm_file_obj, bucket: str, key: str, old_value: str) -> Optional[str]:
+    if cnm_file_obj and "type" in cnm_file_obj:
+        cnm_type = cnm_file_obj["type"]
+        log.info(
+            "Using type from CNM file for s3://%s/%s",
+            bucket,
+            key,
+        )
+        return cnm_type
 
     valid_types = ["data", "metadata", "browse", "qa", "linkage", "null"]
     while True:
-        val = _prompt_with_options(f"type for {Path(key).name}", valid_types, old_cnm_type)
-        if val not in valid_types:
+        new_value = _prompt_with_options(
+            f"type for {Path(key).name}",
+            valid_types,
+            old_value,
+        )
+        if new_value not in valid_types:
             confirm = input(
-                f"{repr(val)} should be one of {repr(valid_types)}. "
+                f"{repr(new_value)} should be one of {repr(valid_types)}. "
                 "Are you sure? [y/N]: ",
             ).strip()
             if confirm.lower() != "y":
@@ -185,10 +200,10 @@ def get_type(cnm_file, bucket, key: str, old_cnm_type: str) -> Optional[str]:
 
         break
 
-    if val == "null":
+    if new_value == "null":
         return None
 
-    return val
+    return new_value
 
 
 def _prompt_with_options(prompt: str, valid_options: list[str], default: str) -> str:
