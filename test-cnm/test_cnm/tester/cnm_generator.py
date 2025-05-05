@@ -58,10 +58,10 @@ class CnmSGenerator:
                         "uri": f"s3://{file['Bucket']}/{file['Key']}",
                         "size": file["Size"],
                         "checksum": self._get_checksum(file),
-                        "checksumType": "md5"
+                        "checksumType": "md5",
                     }
                     for file in files
-                ]
+                ],
             },
             "provider": self.provider,
         }
@@ -71,7 +71,11 @@ class CnmSGenerator:
         return cnm_s
 
     def _get_type(self, file: dict):
-        suffixes = Path(file["Key"]).suffixes
+        key = file["Key"]
+        if self.metadata and key in self.metadata:
+            return self.metadata[key]["type"]
+
+        suffixes = Path(key).suffixes
         while suffixes:
             data_type = DATA_TYPE_MAP.get("".join(suffixes))
             if data_type:

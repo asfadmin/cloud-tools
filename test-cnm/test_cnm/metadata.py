@@ -83,6 +83,17 @@ class Metadata:
                 exc_info=True,
             )
 
+    def delete(self, key: str, item: str):
+        entry = self.metadata.get(key)
+        if entry is None:
+            return
+
+        if item in entry:
+            del entry[item]
+
+        if not entry:
+            del self.metadata[key]
+
     def __enter__(self) -> "Metadata":
         self.load()
         return self

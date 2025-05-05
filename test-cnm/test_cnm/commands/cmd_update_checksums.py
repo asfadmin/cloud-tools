@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
+from typing import Optional
 
 from test_cnm.config import ConfigBasic
 from test_cnm.metadata import CHECKSUM_PATTERN, ChecksumWriter, Metadata
@@ -27,6 +28,11 @@ def add_parser(
             "checksum values from"
         ),
         type=Path,
+    )
+    parser_update_checksums.add_argument(
+        "--skip-type",
+        help="Do not update the 'type' field for files",
+        action="store_true",
     )
     parser_update_checksums.add_argument(
         "prefix",
@@ -99,6 +105,26 @@ def cmd_update_checksums(
 
                 metadata[key]["checksum"] = md5sum
 
+                if not args.skip_type:
+                    old_cnm_type = "null"
+                    if key in metadata:
+                        old_cnm_type = metadata[key].get("type", "null")
+
+                    cnm_type = get_type(cnm_file, bucket, key, old_cnm_type)
+
+                    log.debug(
+                        "Updating type for s3://%s/%s %s -> %s",
+                        bucket,
+                        key,
+                        old_cnm_type,
+                        cnm_type,
+                    )
+                    if cnm_type is not None:
+                        metadata[key]["type"] = cnm_type
+                    else:
+                        metadata.delete(key, "type")
+
+
 
 def get_md5sum(client, cnm_file, bucket: str, key: str):
     if cnm_file:
@@ -132,6 +158,61 @@ def get_md5sum(client, cnm_file, bucket: str, key: str):
         Key=key,
     )
     return md5.hexdigest()
+
+
+def get_type(cnm_file, bucket, key: str, old_cnm_type: str) -> Optional[str]:
+    if cnm_file:
+        file_obj = _find_matching_cnm_file_obj(cnm_file, key)
+        if file_obj and "type" in file_obj:
+            cnm_type = file_obj["type"]
+            log.info(
+                "Using type from CNM file for s3://%s/%s",
+                bucket,
+                key,
+            )
+            return cnm_type
+
+    valid_types = ["data", "metadata", "browse", "qa", "linkage", "null"]
+    while True:
+        val = _prompt_with_options(f"type for {Path(key).name}", valid_types, old_cnm_type)
+        if val not in valid_types:
+            confirm = input(
+                f"{repr(val)} should be one of {repr(valid_types)}. "
+                "Are you sure? [y/N]: ",
+            ).strip()
+            if confirm.lower() != "y":
+                continue
+
+        break
+
+    if val == "null":
+        return None
+
+    return val
+
+
+def _prompt_with_options(prompt: str, valid_options: list[str], default: str) -> str:
+    options = []
+    for option in valid_options:
+        first = option[0]
+        if option == default:
+            first = first.upper()
+
+        options.append(f"({first}){option[1:]}")
+
+    if default not in valid_options:
+        options.append(f"default={default}")
+
+    options_text = "/".join(options)
+    val = input(f"{prompt} [{options_text}]: ").strip()
+    if not val:
+        return default
+
+    for typ in valid_options:
+        if typ.startswith(val):
+            return typ
+
+    return val
 
 
 def _find_matching_cnm_file_obj(cnm_file, key: str):
