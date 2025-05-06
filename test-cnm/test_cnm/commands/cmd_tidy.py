@@ -62,8 +62,8 @@ def cmd_tidy(
                         Key=key,
                     )
                     deleted += 1
-
-                del extra_metadata[key]
+                else:
+                    extra_metadata.pop(key, None)
 
         extra_key_count = len(extra_metadata)
         if not args.keep_metadata:

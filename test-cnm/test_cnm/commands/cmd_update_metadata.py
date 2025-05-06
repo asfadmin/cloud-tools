@@ -71,9 +71,10 @@ def cmd_update_metadata(
             for entry in response.get("Contents", ()):
                 key = entry["Key"]
 
-                if prefixes and not any(
-                    key.startswith(prefix) for prefix in prefixes
-                ):
+                if (
+                    prefixes
+                    and not any(key.startswith(prefix) for prefix in prefixes)
+                ) or key == metadata.key:
                     continue
 
                 cnm_file_obj = _find_matching_cnm_file_obj(cnm_file, key)
@@ -120,7 +121,9 @@ def update_property(
     get_value,
 ):
     if key in metadata:
-        old_value = metadata[key][property]
+        entry = metadata[key]
+        if property in entry:
+            old_value = entry[property]
 
     new_value = get_value(old_value)
 

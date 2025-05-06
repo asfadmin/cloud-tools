@@ -73,7 +73,9 @@ class CnmSGenerator:
     def _get_type(self, file: dict):
         key = file["Key"]
         if self.metadata and key in self.metadata:
-            return self.metadata[key]["type"]
+            metadata_entry = self.metadata[key]
+            if "type" in metadata_entry:
+                return metadata_entry["type"]
 
         suffixes = Path(key).suffixes
         while suffixes:
