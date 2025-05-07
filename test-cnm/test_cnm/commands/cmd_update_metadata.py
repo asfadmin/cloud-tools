@@ -3,8 +3,9 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+import boto3
 from test_cnm.config import ConfigBasic
 from test_cnm.metadata import CHECKSUM_PATTERN, ChecksumWriter, Metadata
 
@@ -30,9 +31,26 @@ def add_parser(
         type=Path,
     )
     parser_update_metadata.add_argument(
-        "--skip-type",
-        help="Do not update the 'type' field for files",
+        "--interactive",
+        "-i",
+        help="Prompt for unknown values interactively on stdin",
         action="store_true",
+    )
+    parser_update_metadata.add_argument(
+        "--include-property",
+        "-p",
+        help="Property to update",
+        choices=list(PropertyUpdater.PROPERTY_HANDLERS.keys()),
+        default=[],
+        action="append",
+    )
+    parser_update_metadata.add_argument(
+        "--exclude-property",
+        "-x",
+        help="Property to ignore when updating",
+        choices=list(PropertyUpdater.PROPERTY_HANDLERS.keys()),
+        default=[],
+        action="append",
     )
     parser_update_metadata.add_argument(
         "prefix",
@@ -66,6 +84,14 @@ def cmd_update_metadata(
         client = session.client("s3")
         paginator = client.get_paginator("list_objects_v2")
 
+        updater = PropertyUpdater(
+            client,
+            metadata,
+            interactive=args.interactive,
+            include_properties=args.include_property,
+            exclude_properties=args.exclude_property,
+        )
+
         for response in paginator.paginate(Bucket=config.test_bucket):
             bucket = response["Name"]
             for entry in response.get("Contents", ()):
@@ -79,73 +105,73 @@ def cmd_update_metadata(
 
                 cnm_file_obj = _find_matching_cnm_file_obj(cnm_file, key)
 
-                md5sum = update_property(
-                    metadata,
-                    "checksum",
-                    bucket,
-                    key,
-                    "...",
-                    lambda _: get_md5sum(client, cnm_file_obj, bucket, key),
-                )
-
-                m = CHECKSUM_PATTERN.match(entry["ETag"])
-                if m:
-                    etag_md5sum = m.group(1)
-                    if etag_md5sum != md5sum:
-                        log.warning(
-                            "Computed checksum for s3://%s/%s did not match "
-                            "etag [computed: %s, etag: %s]",
-                            bucket,
-                            key,
-                            md5sum,
-                            etag_md5sum,
-                        )
-
-                if not args.skip_type:
-                    update_property(
-                        metadata,
-                        "type",
-                        bucket,
-                        key,
-                        "null",
-                        lambda old_value: get_type(cnm_file_obj, bucket, key, old_value),
-                    )
+                updater.update_properties(cnm_file_obj, bucket, entry)
 
 
-def update_property(
-    metadata: Metadata,
-    property: str,
-    bucket: str,
-    key: str,
-    old_value: str,
-    get_value,
-):
-    if key in metadata:
-        entry = metadata[key]
-        if property in entry:
-            old_value = entry[property]
-
-    new_value = get_value(old_value)
-
-    log.debug(
-        "Updating %s for s3://%s/%s %s -> %s",
-        property,
-        bucket,
-        key,
-        old_value,
-        new_value,
-    )
-
-    if new_value is not None:
-        metadata[key][property] = new_value
-    else:
-        metadata.delete(key, property)
-
-    return new_value
+class ValueNotFound(Exception):
+    pass
 
 
-def get_md5sum(client, cnm_file_obj, bucket: str, key: str) -> str:
-    if cnm_file_obj and "checksum" in cnm_file_obj:
+class PropertyHandler:
+    @staticmethod
+    def get_default_value() -> str:
+        return "null"
+
+    def get_value_from_cnm_file(
+        self,
+        property: str,
+        cnm_file_obj: dict,
+        bucket: str,
+        key: str,
+    ) -> Any:
+        val = cnm_file_obj[property]
+        log.info(
+            "Using %s from CNM file for s3://%s/%s",
+            property,
+            bucket,
+            key,
+        )
+        return val
+
+    def get_value_interactively(
+        self,
+        property: str,
+        key: str,
+        old_value: Any,
+    ) -> Optional[str]:
+        return _prompt_with_options(
+            f"{property} for {Path(key).name}",
+            [],
+            old_value,
+        )
+
+    def get_value_from_s3(
+        self,
+        property: str,
+        client: boto3.client,
+        bucket: str,
+        key: str,
+    ) -> Any:
+        raise ValueNotFound()
+
+    def validate_new_value(self, new_value: Any, bucket: str, entry: dict):
+        pass
+
+
+class ChecksumPropertyHandler(PropertyHandler):
+    @staticmethod
+    def get_default_value() -> str:
+        return "..."
+
+    def get_value_fron_cnm_file(
+        self,
+        property: str,
+        cnm_file_obj: dict,
+        bucket: str,
+        key: str,
+    ) -> Any:
+        del property
+
         checksum_type = cnm_file_obj.get("checksumType")
         checksum = cnm_file_obj["checksum"]
 
@@ -157,6 +183,7 @@ def get_md5sum(client, cnm_file_obj, bucket: str, key: str) -> str:
                 key,
                 checksum_type,
             )
+            raise ValueNotFound()
         else:
             log.info(
                 "Using checksum from CNM file for s3://%s/%s",
@@ -165,51 +192,218 @@ def get_md5sum(client, cnm_file_obj, bucket: str, key: str) -> str:
             )
             return checksum
 
-    log.info("Computing checksum for s3://%s/%s", bucket, key)
+    def get_value_from_s3(
+        self,
+        property: str,
+        client: boto3.client,
+        bucket: str,
+        key: str,
+    ) -> str:
+        del property
 
-    md5 = hashlib.md5()
-    client.download_fileobj(
-        Fileobj=ChecksumWriter(md5),
-        Bucket=bucket,
-        Key=key,
-    )
-    return md5.hexdigest()
+        log.info("Computing checksum for s3://%s/%s", bucket, key)
+
+        md5 = hashlib.md5()
+        client.download_fileobj(
+            Fileobj=ChecksumWriter(md5),
+            Bucket=bucket,
+            Key=key,
+        )
+        return md5.hexdigest()
+
+    def validate_new_value(self, new_value: Any, bucket: str, entry: dict):
+        key = entry["Key"]
+        m = CHECKSUM_PATTERN.match(entry["ETag"])
+        if m:
+            etag_md5sum = m.group(1)
+            if etag_md5sum != new_value:
+                log.warning(
+                    "Computed checksum for s3://%s/%s did not match "
+                    "etag [computed: %s, etag: %s]",
+                    bucket,
+                    key,
+                    new_value,
+                    etag_md5sum,
+                )
 
 
-def get_type(cnm_file_obj, bucket: str, key: str, old_value: str) -> Optional[str]:
-    if cnm_file_obj and "type" in cnm_file_obj:
-        cnm_type = cnm_file_obj["type"]
-        log.info(
-            "Using type from CNM file for s3://%s/%s",
+class TypePropertyHandler(PropertyHandler):
+    def get_value_interactively(
+        self,
+        property: str,
+        key: str,
+        old_value: Any,
+    ) -> Optional[str]:
+        del property
+
+        if old_value is None:
+            old_value = "null"
+
+        valid_types = ["data", "metadata", "browse", "qa", "linkage", "null"]
+        while True:
+            new_value = _prompt_with_options(
+                f"type for {Path(key).name}",
+                valid_types,
+                old_value,
+            )
+            if new_value not in valid_types:
+                confirm = input(
+                    f"{repr(new_value)} should be one of {repr(valid_types)}. "
+                    "Are you sure? [y/N]: ",
+                ).strip()
+                if confirm.lower() != "y":
+                    continue
+
+            break
+
+        if new_value == "null":
+            return None
+
+        return new_value
+
+
+class PropertyUpdater:
+    PROPERTY_HANDLERS = {
+        "checksum": ChecksumPropertyHandler(),
+        "type": TypePropertyHandler(),
+    }
+
+    def __init__(
+        self,
+        client: boto3.client,
+        metadata: Metadata,
+        interactive: bool = False,
+        include_properties: list[str] = [],
+        exclude_properties: list[str] = [],
+    ):
+        self.client = client
+        self.metadata = metadata
+
+        self.interactive = interactive
+        self.include_properties = include_properties
+        self.exclude_properties = exclude_properties
+
+    def update_properties(
+        self,
+        cnm_file_obj: Optional[dict],
+        bucket: str,
+        entry: dict,
+    ):
+        for property, handler in self.PROPERTY_HANDLERS.items():
+            if self.is_enabled(property):
+                self.update_property(
+                    property,
+                    cnm_file_obj,
+                    bucket,
+                    entry,
+                    handler,
+                )
+
+    def update_property(
+        self,
+        property: str,
+        cnm_file_obj: Optional[dict],
+        bucket: str,
+        entry: dict,
+        handler: PropertyHandler,
+    ):
+        key = entry["Key"]
+
+        old_value = None
+        if key in self.metadata:
+            metadata_entry = self.metadata[key]
+            if property in metadata_entry:
+                old_value = metadata_entry[property]
+
+        new_value = self.get_value_from_handler(
+            property,
+            handler,
+            cnm_file_obj,
             bucket,
             key,
-        )
-        return cnm_type
-
-    valid_types = ["data", "metadata", "browse", "qa", "linkage", "null"]
-    while True:
-        new_value = _prompt_with_options(
-            f"type for {Path(key).name}",
-            valid_types,
             old_value,
         )
-        if new_value not in valid_types:
-            confirm = input(
-                f"{repr(new_value)} should be one of {repr(valid_types)}. "
-                "Are you sure? [y/N]: ",
-            ).strip()
-            if confirm.lower() != "y":
-                continue
+        if new_value is None or new_value == old_value:
+            log.debug(
+                "Skipping %s for s3://%s/%s %s",
+                property,
+                bucket,
+                key,
+                old_value,
+            )
+            return
 
-        break
+        log.debug(
+            "Updating %s for s3://%s/%s %s -> %s",
+            property,
+            bucket,
+            key,
+            old_value if old_value is not None else handler.get_default_value(),
+            new_value,
+        )
 
-    if new_value == "null":
-        return None
+        if new_value is not None:
+            self.metadata[key][property] = new_value
+        else:
+            self.metadata.delete(key, property)
 
-    return new_value
+        handler.validate_new_value(new_value, bucket, entry)
+
+    def get_value_from_handler(
+        self,
+        property: str,
+        handler: PropertyHandler,
+        cnm_file_obj: Optional[dict],
+        bucket: str,
+        key: str,
+        old_value: Any,
+    ) -> Any:
+        if cnm_file_obj and property in cnm_file_obj:
+            try:
+                return handler.get_value_from_cnm_file(
+                    property,
+                    cnm_file_obj,
+                    bucket,
+                    key,
+                )
+            except ValueNotFound:
+                pass
+
+        if self.interactive:
+            try:
+                return handler.get_value_interactively(
+                    property,
+                    key,
+                    old_value,
+                )
+            except ValueNotFound:
+                pass
+
+        try:
+            return handler.get_value_from_s3(
+                property,
+                self.client,
+                bucket,
+                key,
+            )
+        except ValueNotFound:
+            pass
+
+    def is_enabled(self, property: str) -> bool:
+        if self.include_properties and property not in self.include_properties:
+            return False
+
+        if property in self.exclude_properties:
+            return False
+
+        return True
 
 
-def _prompt_with_options(prompt: str, valid_options: list[str], default: str) -> str:
+def _prompt_with_options(
+    prompt: str,
+    valid_options: list[str],
+    default: Optional[str] = None,
+) -> Optional[str]:
     options = []
     for option in valid_options:
         first = option[0]
@@ -218,7 +412,7 @@ def _prompt_with_options(prompt: str, valid_options: list[str], default: str) ->
 
         options.append(f"({first}){option[1:]}")
 
-    if default not in valid_options:
+    if default is not None and default not in valid_options:
         options.append(f"default={default}")
 
     options_text = "/".join(options)
@@ -233,20 +427,22 @@ def _prompt_with_options(prompt: str, valid_options: list[str], default: str) ->
     return val
 
 
-def _find_matching_cnm_file_obj(cnm_file, key: str):
+def _find_matching_cnm_file_obj(cnm_file: Any, key: str) -> Optional[dict]:
     if isinstance(cnm_file, dict) and "files" in cnm_file:
         files = cnm_file["files"]
         if isinstance(files, list):
             for file in files:
-                name = file.get("name")
-                if name and key.endswith(name):
-                    return file
+                if isinstance(file, dict):
+                    name = file.get("name")
+                    if name and key.endswith(name):
+                        return file
 
     if isinstance(cnm_file, dict):
         for obj in cnm_file.values():
             file = _find_matching_cnm_file_obj(obj, key)
             if file:
                 return file
+
     elif isinstance(cnm_file, list):
         for obj in cnm_file:
             file = _find_matching_cnm_file_obj(obj, key)
