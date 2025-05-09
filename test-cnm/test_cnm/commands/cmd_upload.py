@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 from typing import cast
 
-from test_cnm.checksums import Checksums
 from test_cnm.config import ConfigBasic
+from test_cnm.metadata import Metadata
 from test_cnm.uploader import Uploader
 
 
@@ -73,8 +73,8 @@ def cmd_upload(
         resolved_paths.append(path)
 
     session = config.session()
-    with Checksums(session, config.test_bucket) as checksums:
-        uploader = Uploader(session, config.test_bucket, checksums)
+    with Metadata(session, config.test_bucket) as metadata:
+        uploader = Uploader(session, config.test_bucket, metadata)
 
         for path in resolved_paths:
             if not recursive:

@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import sys
-from importlib.metadata import Distribution
+from importlib.metadata import Distribution, PackageNotFoundError
 from platform import python_version
 from typing import Optional
 
@@ -20,22 +20,30 @@ from test_cnm.commands import (
     cmd_move,
     cmd_test,
     cmd_tidy,
-    cmd_update_checksums,
+    cmd_update_metadata,
     cmd_upload,
 )
 
 log = logging.getLogger(__name__)
 
+LOG_HANDLER = logging.StreamHandler(sys.stdout)
+
 
 def _get_version() -> str:
     name = "test-cnm"
-    dist = Distribution.from_name(name)
-    direct_url = json.loads(dist.read_text("direct_url.json"))
-    editable = direct_url.get("dir_info", {}).get("editable", False)
-    return (
-        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
-        f"on Python {python_version()}"
-    )
+    try:
+        dist = Distribution.from_name(name)
+        direct_url = json.loads(dist.read_text("direct_url.json"))
+        editable = direct_url.get("dir_info", {}).get("editable", False)
+        return (
+            f"{name} {'(editable) ' if editable else ''}{dist.version} "
+            f"on Python {python_version()}"
+        )
+    except PackageNotFoundError:
+        return (
+            f"{name} from source "
+            f"on Python {python_version()}"
+        )
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -103,7 +111,7 @@ def get_parser() -> argparse.ArgumentParser:
     cmd_move.add_parser(subparsers)
     cmd_test.add_parser(subparsers)
     cmd_tidy.add_parser(subparsers)
-    cmd_update_checksums.add_parser(subparsers)
+    cmd_update_metadata.add_parser(subparsers)
     cmd_upload.add_parser(subparsers)
 
     return parser
@@ -135,7 +143,8 @@ def main(args: Optional[list[str]] = None):
     if pargs.verbose >= 3:
         botocore_logger.setLevel(logging.DEBUG)
 
-    root_logger.addHandler(logging.StreamHandler(sys.stdout))
+    if LOG_HANDLER not in root_logger.handlers:
+        root_logger.addHandler(LOG_HANDLER)
 
     config_cls = pargs.config_cls
     config = config_cls.from_file(

@@ -1,8 +1,8 @@
 import argparse
 import logging
 
-from test_cnm.checksums import Checksums
 from test_cnm.config import ConfigBasic
+from test_cnm.metadata import Metadata
 
 log = logging.getLogger(__name__)
 
@@ -14,14 +14,14 @@ def add_parser(
         "tidy",
         help=(
             "Tidy the test bucket by removing 0 byte 'folders' created by "
-            "the AWS console and removing checksums for keys that no longer "
+            "the AWS console and removing metadata for keys that no longer "
             "exist"
         ),
     )
     parser_tidy.add_argument(
-        "--keep-checksums",
+        "--keep-metadata",
         help=(
-            "Don't remove checksums for objects that are missing from the test "
+            "Don't remove metadata for objects that are missing from the test "
             "bucket"
         ),
         action="store_true",
@@ -44,8 +44,8 @@ def cmd_tidy(
     client = session.client("s3")
     paginator = client.get_paginator("list_objects_v2")
 
-    with Checksums(session, config.test_bucket) as checksums:
-        extra_checksums = dict(checksums.checksums)
+    with Metadata(session, config.test_bucket) as metadata:
+        extra_metadata = dict(metadata.metadata)
 
         total = 0
         deleted = 0
@@ -62,23 +62,25 @@ def cmd_tidy(
                         Key=key,
                     )
                     deleted += 1
+                else:
+                    extra_metadata.pop(key, None)
 
-                del extra_checksums[key]
-
-        extra_key_count = len(extra_checksums)
-        if not args.keep_checksums:
-            for key in extra_checksums:
-                log.info("Removing checksums for %s", key)
-                del checksums[key]
+        extra_key_count = len(extra_metadata)
+        if not args.keep_metadata:
+            for key in extra_metadata:
+                log.info("Removing metadata for %s", key)
+                del metadata[key]
 
     log.info("Totals: %s deleted out of %s objects", deleted, total)
-    if args.keep_checksums:
+    if args.keep_metadata:
         log.info(
-            "Totals: %s extra keys found in checksums.json",
+            "Totals: %s extra keys found in %s",
             extra_key_count,
+            metadata.key,
         )
     else:
         log.info(
-            "Totals: %s keys pruned from checksums.json",
+            "Totals: %s keys pruned from %s",
             extra_key_count,
+            metadata.key,
         )

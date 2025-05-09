@@ -1,8 +1,8 @@
 import argparse
 import logging
 
-from test_cnm.checksums import Checksums
 from test_cnm.config import ConfigBasic
+from test_cnm.metadata import Metadata
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def add_parser(
         aliases=["mv"],
         help=(
             "Move test products from one prefix to another and update "
-            "checksums file"
+            "metadata file"
         ),
     )
     parser_move.add_argument(
@@ -41,7 +41,7 @@ def cmd_move(
 ):
     session = config.session()
 
-    with Checksums(session, config.test_bucket) as checksums:
+    with Metadata(session, config.test_bucket) as metadata:
         client = session.client("s3")
         paginator = client.get_paginator("list_objects_v2")
 
@@ -63,9 +63,9 @@ def cmd_move(
                     bucket,
                     dst_key,
                 )
-                if key in checksums:
-                    md5sum = checksums[key]
-                    checksums[dst_key] = md5sum
-                    del checksums[key]
+                if key in metadata:
+                    entry = metadata[key]
+                    del metadata[key]
+                    metadata[dst_key] = entry
                 client.copy({"Bucket": bucket, "Key": key}, bucket, dst_key)
                 client.delete_object(Bucket=bucket, Key=key)

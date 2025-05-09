@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
-from test_cnm.checksums import CHECKSUM_PATTERN, Checksums
+from test_cnm.metadata import CHECKSUM_PATTERN, Metadata
 
 DATA_TYPE_MAP = {
     ".context.json": "metadata",
@@ -30,11 +30,11 @@ class CnmSGenerator:
         self,
         provider: str,
         trace: Optional[str] = None,
-        checksums: Optional[Checksums] = None,
+        metadata: Optional[Metadata] = None,
     ):
         self.provider = provider
         self.trace = trace
-        self.checksums = checksums
+        self.metadata = metadata
 
     def __call__(
         self,
@@ -58,10 +58,10 @@ class CnmSGenerator:
                         "uri": f"s3://{file['Bucket']}/{file['Key']}",
                         "size": file["Size"],
                         "checksum": self._get_checksum(file),
-                        "checksumType": "md5"
+                        "checksumType": "md5",
                     }
                     for file in files
-                ]
+                ],
             },
             "provider": self.provider,
         }
@@ -71,7 +71,13 @@ class CnmSGenerator:
         return cnm_s
 
     def _get_type(self, file: dict):
-        suffixes = Path(file["Key"]).suffixes
+        key = file["Key"]
+        if self.metadata and key in self.metadata:
+            metadata_entry = self.metadata[key]
+            if "type" in metadata_entry:
+                return metadata_entry["type"]
+
+        suffixes = Path(key).suffixes
         while suffixes:
             data_type = DATA_TYPE_MAP.get("".join(suffixes))
             if data_type:
@@ -83,8 +89,8 @@ class CnmSGenerator:
 
     def _get_checksum(self, file: dict):
         key = file["Key"]
-        if self.checksums and key in self.checksums:
-            return self.checksums[key]
+        if self.metadata and key in self.metadata:
+            return self.metadata[key]["checksum"]
 
         m = CHECKSUM_PATTERN.match(file["ETag"])
         if m:

@@ -32,6 +32,8 @@ class TestRun:
         self.filters = filters
 
         self.tests = {}
+        self.started_tests = {}
+
         # Stats
         self.num_started = 0
         self.num_succeeded = 0
@@ -58,7 +60,17 @@ class TestRun:
     def iter_start_tests(self) -> Generator[TestInfo]:
         assert self._state == "tests_collected", "Tests must be collected first"
 
+        self.started_tests.clear()
         for test in self.tests.values():
+            if test.name in self.started_tests:
+                log.warning(
+                    "Skipping %s as the product name conflicts with already "
+                    "started test %s",
+                    test.get_id(),
+                    self.started_tests[test.name].get_id(),
+                )
+                continue
+
             log.info("Starting: %s", test.get_id())
             test.cnm_s = self.executor.ingest_client.submit_request(
                 test.collection,
@@ -67,6 +79,7 @@ class TestRun:
                 test.files,
             )
             self.num_started += 1
+            self.started_tests[test.name] = test
 
             yield test
 
@@ -76,7 +89,7 @@ class TestRun:
         assert self._state == "tests_started", "Tests must be started first"
 
         for name, cnm_r in self.executor.ingest_client.iter_responses():
-            test = self.tests[name]
+            test = self.started_tests[name]
             response = cnm_r.get("response", {})
             status = response.get("status")
             ok = _response_ok(cnm_r)
@@ -88,15 +101,15 @@ class TestRun:
                 self.num_succeeded += 1
             else:
                 self.num_failed += 1
-                error_code = response["errorCode"]
-                error_message = response["errorMessage"]
+                error_code = response.get("errorCode")
+                error_message = response.get("errorMessage")
                 try:
                     error = json.loads(error_message)
                     stack_trace = error.get("stackTrace") or error.get("trace", ())
 
                     log.error("%s: %s", error_code, error["errorMessage"])
                     log.error("".join(stack_trace))
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, TypeError):
                     log.error("%s: %s", error_code, error_message)
 
         self._state = "tests_completed"

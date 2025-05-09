@@ -13,27 +13,27 @@ The source data is pulled from a bucket containing the files to be sent in the
 test payloads. The layout of the bucket is as follows:
 
 ```
-checksums.json
 COLLECTION_1/PRODUCT_1/file1.txt
 COLLECTION_1/PRODUCT_1/file2.txt
 COLLECTION_1/PRODUCT_1/file3.txt
 COLLECTION_2/ARBITRARILY/MANY/SLASHES/PRODUCT_2/file1.txt
 COLLECTION_2/ARBITRARILY/MANY/SLASHES/PRODUCT_2/file2.txt
 COLLECTION_2/ARBITRARILY/MANY/SLASHES/PRODUCT_2/file3.txt
+metadata.json
 ```
 
 There can be arbitrarily many slashes between the collection name and the
 product name in the S3 keys. The script will ignore the intermediate sections
 for the purposes of grouping test files together into one payload.
 
-### Checksums file
-For files that are uploaded entirely in a single request, the etag returned by
-the s3 ListObjectsV2 operation will be used as the checksum value in the CNM
-payload. However, as some files may be large enough that they need to be
-uploaded using multipart, an additional s3 object is used to store the computed
-checksums for these large files.
+### Metadata file
+Generating CNM-S messages requires some additional metadata that isn't
+necessarily available on the S3 objects themselves. This metadata can instead be
+stored in the `metadata.json` file. Entries in the file are considered optional
+and the tool will attempt to guess at the correct values if they are missing
+from the metadata file.
 
-The file has the key `checksums.json` and is layed out like this:
+The `metadata.json` file is layed out like this:
 
 ```json
 {
@@ -41,14 +41,30 @@ The file has the key `checksums.json` and is layed out like this:
     "checksum": "00000000000000000000000000000000"
   },
   "COLLECTION_1/PRODUCT_1/file2.txt": {
-    "checksum": "00000000000000000000000000000000"
+    "checksum": "00000000000000000000000000000000",
+    "type": "linkage"
   }
 }
 ```
 
-Management of the `checksums.json` file is done through the `upload` and
-`update-checksums` commands for convenience. See the `--help` output of each
+Each S3 object key maps to a set of metadata corresponding to keys in the CNM
+`product.files` list.
+
+Management of the `metadata.json` file is done through the `upload` and
+`update-metadata` commands for convenience. See the `--help` output of each
 respective command for usage information.
+
+#### Checksums
+For files that are uploaded entirely in a single request, the etag returned by
+the s3 ListObjectsV2 operation will be used as the checksum value in the CNM
+payload. However, as some files may be large enough that they need to be
+uploaded using multipart, the checksums can be set in the `metadata.json` file.
+
+#### Types
+By default, the CNM file type designation will be guessed based on the file
+extension. Possible values for the type are `data`, `metadata`, `browse`,
+`linkage`, and `qa`. In cases where the guessed file types are not correct, they
+can be overridden in the `metadata.json` file.
 
 ## Config
 Config variables are read from a `testcnm.cfg` file. First the current

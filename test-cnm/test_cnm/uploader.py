@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import boto3
-from test_cnm.checksums import ChecksumReaderProxy, Checksums
+from test_cnm.metadata import ChecksumReaderProxy, Metadata
 
 log = logging.getLogger(__name__)
 
@@ -14,11 +14,11 @@ class Uploader:
         self,
         session: boto3.Session,
         bucket: str,
-        checksums: Checksums,
+        metadata: Metadata,
     ):
         self.session = session
         self.bucket = bucket
-        self.checksums = checksums
+        self.metadata = metadata
 
     def upload_file(
         self,
@@ -42,7 +42,7 @@ class Uploader:
 
         log.debug("Checksum for %s: %s", path, md5.hexdigest())
 
-        self.checksums[key] = md5.hexdigest()
+        self.metadata[key]["checksum"] = md5.hexdigest()
 
 
 def _get_s3_object_key(

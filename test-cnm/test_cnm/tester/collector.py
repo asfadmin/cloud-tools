@@ -17,7 +17,7 @@ class FileDict(TypedDict):
     Bucket: str
     Key: str
     Size: int
-    Md5Sum: str
+    ETag: str
 
 
 @dataclass
@@ -30,9 +30,16 @@ class TestInfo:
 
     def get_id(self) -> str:
         if self.data_version:
-            return f"{self.collection}/{self.data_version}/{self.name}"
+            return self.get_full_id(self.data_version)
 
         return f"{self.collection}/{self.name}"
+
+    def get_full_id(self, default_data_version: str) -> str:
+        return (
+            f"{self.collection}/"
+            f"{self.data_version or default_data_version}/"
+            f"{self.name}"
+        )
 
 
 class TestCollector(Protocol):
@@ -51,7 +58,7 @@ class BucketTestCollector:
 
         log.debug("Collecting tests from bucket %s", self.test_bucket)
 
-        s3_entries = defaultdict(list)
+        s3_entries: dict[tuple[str, Optional[str], str], list[FileDict]] = defaultdict(list)
         for response in paginator.paginate(Bucket=self.test_bucket):
             for entry in response.get("Contents", ()):
                 key = entry["Key"]
@@ -71,11 +78,10 @@ class BucketTestCollector:
                     "Key": key,
                     "Size": entry["Size"],
                     "ETag": entry["ETag"],
-                    "Md5Sum": None,
                 })
 
         return {
-            name: test
+            test.get_id(): test
             for (collection, data_version, name), files in s3_entries.items()
             if _match_filters(
                 filters,
@@ -84,7 +90,7 @@ class BucketTestCollector:
                         collection,
                         data_version,
                         name,
-                        files,
+                        sorted(files, key=lambda file: Path(file["Key"]).name),
                     )
                 ),
             )

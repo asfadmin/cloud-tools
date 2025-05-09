@@ -4,6 +4,7 @@ from pathlib import Path
 
 import boto3
 import pytest
+from moto import mock_aws
 
 logging.getLogger("test_cnm").setLevel(logging.DEBUG)
 logging.getLogger("botocore").setLevel(logging.WARNING)
@@ -28,3 +29,15 @@ def aws_credentials():
 @pytest.fixture(scope="session")
 def get_client():
     return boto3.client
+
+
+@pytest.fixture
+def s3_resource():
+    with mock_aws():
+        yield boto3.resource("s3")
+
+
+@pytest.fixture
+def sqs_client():
+    with mock_aws():
+        yield boto3.client("sqs")
