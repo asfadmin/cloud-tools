@@ -9,7 +9,7 @@ import logging
 import sys
 from typing import Optional
 
-from test_event.commands import cmd_test
+from .commands import cmd_test
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +24,11 @@ def get_parser() -> argparse.ArgumentParser:
         action="count",
         default=0,
     )
-    # parser.add_argument("ingest", help="Ingest system to trigger.")
-    # parser.add_argument(
-    #     "--environment",
-    #     "-e",
-    #     help="Config environment to use."
-    # )
+    parser.add_argument(
+        "--profile",
+        help="AWS profile name",
+        default=None,
+    )
     parser.add_argument(
         "--test-bucket",
         help="S3 bucket containing E2E test data",
