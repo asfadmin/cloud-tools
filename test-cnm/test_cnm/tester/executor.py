@@ -96,12 +96,12 @@ class TestRun:
             test = self.pending_tests.pop(name)
             response = cnm_r.get("response", {})
             status = response.get("status")
-            ok = _response_ok(cnm_r)
 
-            log.info("%s\t%s\t| %s", ok, status, test.get_id())
+            log.info("%s\t| %s", status, test.get_id())
 
             yield test, response
-            if ok:
+
+            if status == "SUCCESS":
                 self.num_succeeded += 1
             else:
                 self.num_failed += 1
@@ -129,7 +129,3 @@ class TestRun:
             self.num_failed,
             self.num_started,
         )
-
-
-def _response_ok(cnm_r: dict) -> bool:
-    return cnm_r.get("response", {}).get("status") == "SUCCESS"

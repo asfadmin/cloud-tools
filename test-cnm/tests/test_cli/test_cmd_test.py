@@ -163,5 +163,5 @@ def test_test(cnm_responder, caplog):
         "Skipping COLLECTION_2/PRODUCT_1 as the product name conflicts with "
         "already started test COLLECTION_1/PRODUCT_1"
     ) in caplog.text
-    assert "True\tSUCCESS\t| COLLECTION_1/PRODUCT_1" in caplog.text
+    assert "SUCCESS\t| COLLECTION_1/PRODUCT_1" in caplog.text
     assert "Totals: 1 Succeeded; 0 Failed of 1 tests" in caplog.text
