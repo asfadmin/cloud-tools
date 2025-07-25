@@ -32,7 +32,7 @@ class TestRun:
         self.filters = filters
 
         self.tests = {}
-        self.started_tests = {}
+        self.pending_tests = {}
 
         # Stats
         self.num_started = 0
@@ -40,6 +40,10 @@ class TestRun:
         self.num_failed = 0
 
         self._state = "not_started"
+
+    @property
+    def num_completed(self) -> int:
+        return self.num_succeeded + self.num_failed
 
     def run(self):
         self.collect_tests()
@@ -60,14 +64,14 @@ class TestRun:
     def iter_start_tests(self) -> Generator[TestInfo]:
         assert self._state == "tests_collected", "Tests must be collected first"
 
-        self.started_tests.clear()
+        self.pending_tests.clear()
         for test in self.tests.values():
-            if test.name in self.started_tests:
+            if test.name in self.pending_tests:
                 log.warning(
                     "Skipping %s as the product name conflicts with already "
                     "started test %s",
                     test.get_id(),
-                    self.started_tests[test.name].get_id(),
+                    self.pending_tests[test.name].get_id(),
                 )
                 continue
 
@@ -79,7 +83,7 @@ class TestRun:
                 test.files,
             )
             self.num_started += 1
-            self.started_tests[test.name] = test
+            self.pending_tests[test.name] = test
 
             yield test
 
@@ -89,7 +93,7 @@ class TestRun:
         assert self._state == "tests_started", "Tests must be started first"
 
         for name, cnm_r in self.executor.ingest_client.iter_responses():
-            test = self.started_tests[name]
+            test = self.pending_tests.pop(name)
             response = cnm_r.get("response", {})
             status = response.get("status")
             ok = _response_ok(cnm_r)
@@ -115,6 +119,10 @@ class TestRun:
         self._state = "tests_completed"
 
     def log_summary(self):
+        if self.pending_tests and self.num_completed != 0:
+            for test in self.pending_tests.values():
+                log.info("PENDING\t| %s", test.get_id())
+
         log.info(
             "Totals: %s Succeeded; %s Failed of %s tests",
             self.num_succeeded,
