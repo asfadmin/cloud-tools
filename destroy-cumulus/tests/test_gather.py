@@ -3,9 +3,8 @@ from unittest import mock
 import moto
 import pytest
 from destroy_cumulus import (
-    Activity,
     CumulusDestroyer,
-    ElasticsearchDomain,
+    EventSourceMapping,
     NameMatcher,
     Resource,
     SQSQueue,
@@ -23,8 +22,8 @@ def mock_queues(get_client):
 @pytest.mark.slow
 def test_gather_all_empty_prefix(monkeypatch):
     # Patch out unsupported types
-    monkeypatch.setitem(Resource.TYPES, "es:domain", mock.create_autospec(ElasticsearchDomain))
-    monkeypatch.setitem(Resource.TYPES, "states:activity", mock.create_autospec(Activity))
+    # TODO(reweeden): This worked at some point. When can we re-enable it?
+    monkeypatch.setitem(Resource.TYPES, "lambda:event-source-mapping", mock.create_autospec(EventSourceMapping))
     # Mock all is very slow. Using it as a decorator causes the slowness to
     # affect pytest collection time.
     with moto.mock_aws():
