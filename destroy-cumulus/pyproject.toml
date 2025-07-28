@@ -20,7 +20,7 @@ python = ">=3.9,<4"
 boto3 = "^1.24.78"
 
 [tool.poetry.group.dev.dependencies]
-moto = {extras = ["all"], version = "^5.0.22"}
+moto = {extras = ["all"], version = "^5.1.6"}
 # openapi-schema-validator uses a private import from jsonpath and is therefore
 # not compatible across all versions. 0.6.1 has a patch for an API change in
 # jsonschema 4.19.1
