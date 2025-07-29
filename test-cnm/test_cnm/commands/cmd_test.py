@@ -87,7 +87,7 @@ def cmd_test(
                     t.update()
 
             with tqdm(
-                total=len(test_run.tests),
+                total=test_run.num_started,
                 miniters=1,
                 leave=False,
                 desc=config.stack_name,
