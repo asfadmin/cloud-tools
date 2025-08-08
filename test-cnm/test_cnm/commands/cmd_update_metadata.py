@@ -98,8 +98,7 @@ def cmd_update_metadata(
                 key = entry["Key"]
 
                 if (
-                    prefixes
-                    and not any(key.startswith(prefix) for prefix in prefixes)
+                    prefixes and not any(key.startswith(prefix) for prefix in prefixes)
                 ) or key == metadata.key:
                     continue
 

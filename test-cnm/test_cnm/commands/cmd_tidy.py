@@ -21,8 +21,7 @@ def add_parser(
     parser_tidy.add_argument(
         "--keep-metadata",
         help=(
-            "Don't remove metadata for objects that are missing from the test "
-            "bucket"
+            "Don't remove metadata for objects that are missing from the test bucket"
         ),
         action="store_true",
     )
