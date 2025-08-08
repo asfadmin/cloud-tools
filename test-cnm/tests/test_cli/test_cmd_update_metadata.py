@@ -16,14 +16,18 @@ def test_bucket(test_bucket):
     obj3.put(Body=b"text3")
 
     metadata = test_bucket.Object("metadata.json")
-    metadata.put(Body=json.dumps({
-        obj1.key: {
-            "checksum": "11111111111111111111111111111111",
-        },
-        obj2.key: {
-            "checksum": "22222222222222222222222222222222",
-        },
-    }).encode())
+    metadata.put(
+        Body=json.dumps(
+            {
+                obj1.key: {
+                    "checksum": "11111111111111111111111111111111",
+                },
+                obj2.key: {
+                    "checksum": "22222222222222222222222222222222",
+                },
+            }
+        ).encode()
+    )
 
     return test_bucket
 
@@ -119,11 +123,15 @@ def test_update_from_cnm_include_checksum(test_bucket, tmp_path, cnm):
     with open(cnm_path, "w") as f:
         json.dump(cnm, f)
 
-    main([
-        "update-metadata",
-        "--cnm-file", str(cnm_path),
-        "--include-property", "checksum",
-    ])
+    main(
+        [
+            "update-metadata",
+            "--cnm-file",
+            str(cnm_path),
+            "--include-property",
+            "checksum",
+        ]
+    )
 
     metadata_obj = test_bucket.Object("metadata.json")
     metadata_dict = json.loads(metadata_obj.get()["Body"].read())
@@ -146,11 +154,15 @@ def test_update_from_cnm_exclude_checksum(test_bucket, tmp_path, cnm):
     with open(cnm_path, "w") as f:
         json.dump(cnm, f)
 
-    main([
-        "update-metadata",
-        "--cnm-file", str(cnm_path),
-        "--exclude-property", "checksum",
-    ])
+    main(
+        [
+            "update-metadata",
+            "--cnm-file",
+            str(cnm_path),
+            "--exclude-property",
+            "checksum",
+        ]
+    )
 
     metadata_obj = test_bucket.Object("metadata.json")
     metadata_dict = json.loads(metadata_obj.get()["Body"].read())

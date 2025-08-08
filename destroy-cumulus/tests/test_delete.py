@@ -23,7 +23,7 @@ def test_delete_rule_targets(get_client, client_events):
                     "function:lambda-function-name"
                 ),
             }
-        ]
+        ],
     )
 
     rule = CloudWatchEventRule.from_arn(Arn(rule_arn))
@@ -47,7 +47,7 @@ def test_delete_rule_many_targets(get_client, client_events):
                 ),
             }
             for i in range(3000)
-        ]
+        ],
     )
 
     rule = CloudWatchEventRule.from_arn(Arn(rule_arn))

@@ -60,11 +60,13 @@ class CumulusApiGranuleSource(GranuleSource):
         granules = SortedList()
 
         params = {
-            "fields": ",".join([
-                "granuleId",
-                "status",
-                "timestamp",
-            ]),
+            "fields": ",".join(
+                [
+                    "granuleId",
+                    "status",
+                    "timestamp",
+                ]
+            ),
         }
         if options.update_date:
             begin, end = options.update_date
@@ -86,17 +88,19 @@ class CumulusApiGranuleSource(GranuleSource):
 
             body = json.loads(response_payload["body"])
 
-            granules.update((
-                GranuleInfo(
-                    granule_id=result["granuleId"],
-                    update_date=datetime.fromtimestamp(
-                        result["timestamp"] / 1000,
-                        tz=timezone.utc,
-                    ),
-                    status=result["status"],
+            granules.update(
+                (
+                    GranuleInfo(
+                        granule_id=result["granuleId"],
+                        update_date=datetime.fromtimestamp(
+                            result["timestamp"] / 1000,
+                            tz=timezone.utc,
+                        ),
+                        status=result["status"],
+                    )
+                    for result in body.get("results", ())
                 )
-                for result in body.get("results", ())
-            ))
+            )
 
         return granules
 
@@ -175,33 +179,27 @@ def cmd_report(args: argparse.Namespace):
                 "edl_host": "uat.urs.earthdata.nasa.gov",
                 "cmr_host": "cmr.uat.earthdata.nasa.gov",
             },
-            "asf_search_options_params": {
-                "host": "cmr.uat.earthdata.nasa.gov"
-            },
+            "asf_search_options_params": {"host": "cmr.uat.earthdata.nasa.gov"},
         },
         "int": {
             "asf_session_params": {
                 "edl_host": "uat.urs.earthdata.nasa.gov",
                 "cmr_host": "cmr.uat.earthdata.nasa.gov",
             },
-            "asf_search_options_params": {
-                "host": "cmr.uat.earthdata.nasa.gov"
-            },
+            "asf_search_options_params": {"host": "cmr.uat.earthdata.nasa.gov"},
             "asf_search_params": {
                 "provider": "ASFDEV",
-            }
+            },
         },
         "dev": {
             "asf_session_params": {
                 "edl_host": "uat.urs.earthdata.nasa.gov",
                 "cmr_host": "cmr.uat.earthdata.nasa.gov",
             },
-            "asf_search_options_params": {
-                "host": "cmr.uat.earthdata.nasa.gov"
-            },
+            "asf_search_options_params": {"host": "cmr.uat.earthdata.nasa.gov"},
             "asf_search_params": {
                 "provider": "ASFDEV",
-            }
+            },
         },
     }
 

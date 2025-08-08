@@ -39,7 +39,8 @@ def test_bucket(test_bucket):
 def test_list_all(capcli):
     main(["list"])
 
-    assert capcli.getvalue() == textwrap.dedent("""
+    assert capcli.getvalue() == textwrap.dedent(
+        """
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
@@ -55,13 +56,15 @@ def test_list_all(capcli):
       - PRODUCT_1 (2 files)
 
     Totals: 5 Collections; 6 Tests
-    """.lstrip("\n"))
+    """.lstrip("\n")
+    )
 
 
 def test_list_prefix(capcli):
     main(["list", "COLLECTION_1"])
 
-    assert capcli.getvalue() == textwrap.dedent("""
+    assert capcli.getvalue() == textwrap.dedent(
+        """
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
@@ -69,13 +72,15 @@ def test_list_prefix(capcli):
       - PRODUCT_2 (2 files)
 
     Totals: 1 Collections; 2 Tests
-    """.lstrip("\n"))
+    """.lstrip("\n")
+    )
 
 
 def test_list_prefix_multiple(capcli):
     main(["list", "COLLECTION_1", "COLLECTION_2"])
 
-    assert capcli.getvalue() == textwrap.dedent("""
+    assert capcli.getvalue() == textwrap.dedent(
+        """
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
@@ -85,13 +90,15 @@ def test_list_prefix_multiple(capcli):
       - PRODUCT_1 (4 files)
 
     Totals: 2 Collections; 3 Tests
-    """.lstrip("\n"))
+    """.lstrip("\n")
+    )
 
 
 def test_list_files(capcli):
     main(["list", "--files"])
 
-    assert capcli.getvalue() == textwrap.dedent("""
+    assert capcli.getvalue() == textwrap.dedent(
+        """
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
@@ -121,4 +128,5 @@ def test_list_files(capcli):
         └── file2.txt
 
     Totals: 5 Collections; 6 Tests
-    """.lstrip("\n"))
+    """.lstrip("\n")
+    )

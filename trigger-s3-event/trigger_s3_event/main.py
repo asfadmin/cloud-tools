@@ -50,7 +50,7 @@ def _get_version() -> str:
     direct_url = json.loads(dist.read_text("direct_url.json"))
     editable = direct_url.get("dir_info", {}).get("editable", False)
     return (
-        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
+        f"{name} {'(editable) ' if editable else ''}{dist.version} "
         f"on Python {python_version()}"
     )
 

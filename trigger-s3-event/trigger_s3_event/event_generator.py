@@ -11,7 +11,7 @@ from trigger_s3_event.template import FormatValue
 log = logging.getLogger(__name__)
 
 
-class EventGenerator():
+class EventGenerator:
     def __init__(
         self,
         session: boto3.Session,
@@ -47,7 +47,7 @@ class EventGenerator():
 
         self._notifiers = []
 
-        if (queue_configs := response.get("QueueConfigurations")):
+        if queue_configs := response.get("QueueConfigurations"):
             sqs_client = self.session.client("sqs")
             self._notifiers.extend(
                 SQSQueueNotifier(sqs_client, configuration, self.dry_run)
@@ -60,7 +60,7 @@ class EventGenerator():
         if response.get("EventBridgeConfiguration"):
             log.warning("WARNING: Unhandled EventBridge configuration(s)")
 
-        if (topic_configs := response.get("TopicConfigurations")):
+        if topic_configs := response.get("TopicConfigurations"):
             sns_client = self.session.client("sns")
             self._notifiers.extend(
                 SNSTopicNotifier(sns_client, configuration, self.dry_run)

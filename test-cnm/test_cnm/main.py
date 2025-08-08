@@ -40,10 +40,7 @@ def _get_version() -> str:
             f"on Python {python_version()}"
         )
     except PackageNotFoundError:
-        return (
-            f"{name} from source "
-            f"on Python {python_version()}"
-        )
+        return f"{name} from source on Python {python_version()}"
 
 
 def get_parser() -> argparse.ArgumentParser:

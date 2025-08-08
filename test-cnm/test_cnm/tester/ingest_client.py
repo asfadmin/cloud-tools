@@ -24,11 +24,7 @@ class CnmIngestClient:
         self._requests = {}
 
     def submit_request(
-        self,
-        collection: str,
-        data_version: str,
-        name: str,
-        files: list
+        self, collection: str, data_version: str, name: str, files: list
     ):
         cnm_s = self.make_cnm_s(collection, data_version, name, files)
         self._requests[(name, cnm_s["submissionTime"])] = True
@@ -43,10 +39,7 @@ class CnmIngestClient:
         return cnm_s
 
     def get_responses(self):
-        return {
-            name: cnm_r
-            for name, cnm_r in self.iter_responses()
-        }
+        return {name: cnm_r for name, cnm_r in self.iter_responses()}
 
     def iter_responses(self):
         while self._requests:
@@ -64,8 +57,7 @@ class CnmIngestClient:
                 log.debug("Received CNM-R: %s", message["Body"])
 
                 self.client.delete_message(
-                    QueueUrl=self.response_queue,
-                    ReceiptHandle=message["ReceiptHandle"]
+                    QueueUrl=self.response_queue, ReceiptHandle=message["ReceiptHandle"]
                 )
 
                 yield name, cnm_r

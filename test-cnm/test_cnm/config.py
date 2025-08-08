@@ -47,9 +47,7 @@ class ConfigBase:
             for field in fields(cls)
         }
         missing = [
-            k
-            for field, (k, v) in zip(fields(cls), kwargs.items())
-            if v is MISSING
+            k for field, (k, v) in zip(fields(cls), kwargs.items()) if v is MISSING
         ]
         if missing:
             raise ConfigError(f"missing values for {missing} for environment '{env}'")

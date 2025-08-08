@@ -78,7 +78,9 @@ class Arn:
     def __init__(self, arn):
         self._arn = arn
 
-        _arn, self.partition, self.service, self.region, self.account, ident = arn.split(":", 5)
+        _arn, self.partition, self.service, self.region, self.account, ident = (
+            arn.split(":", 5)
+        )
         colon_idx = ident.find(":")
         slash_idx = ident.find("/")
 
@@ -347,7 +349,7 @@ class UnnamedIAMRoleCollector:
                 role_name,
                 entry["RoleId"],
                 arn=Arn(entry["Arn"]),
-                tags=entry.get("Tags", ())
+                tags=entry.get("Tags", ()),
             )
             for response in role_paginator.paginate()
             for entry in response.get("Roles", ())
@@ -357,13 +359,13 @@ class UnnamedIAMRoleCollector:
                     self._has_matching_attached_policy(
                         client,
                         attached_policy_paginator.paginate(RoleName=role_name),
-                        name_matcher
+                        name_matcher,
                     )
                     or self._has_matching_inline_policy(
                         client,
                         inline_policy_paginator.paginate(RoleName=role_name),
                         role_name,
-                        name_matcher
+                        name_matcher,
                     )
                 )
             )
@@ -378,8 +380,7 @@ class UnnamedIAMRoleCollector:
                 version_id = response["Policy"]["DefaultVersionId"]
 
                 response = client.get_policy_version(
-                    PolicyArn=policy_arn,
-                    VersionId=version_id
+                    PolicyArn=policy_arn, VersionId=version_id
                 )
                 document = response["Document"]
                 if isinstance(document, str):
@@ -390,12 +391,13 @@ class UnnamedIAMRoleCollector:
 
         return False
 
-    def _has_matching_inline_policy(self, client, inline_policies, role_name, name_matcher):
+    def _has_matching_inline_policy(
+        self, client, inline_policies, role_name, name_matcher
+    ):
         for response in inline_policies:
             for policy_name in response.get("PolicyNames", ()):
                 response = client.get_role_policy(
-                    RoleName=role_name,
-                    PolicyName=policy_name
+                    RoleName=role_name, PolicyName=policy_name
                 )
                 document = response["PolicyDocument"]
                 if isinstance(document, str):
@@ -430,6 +432,8 @@ class UnnamedIAMRoleCollector:
                         return True
 
         return False
+
+
 #
 # Resource subclasses defined in alphabetical order
 #
@@ -554,10 +558,7 @@ class Bucket(Resource):
             client.delete_objects(
                 Bucket=self.name,
                 Delete=dict(
-                    Objects=[
-                        {"Key": entry["Key"]}
-                        for entry in response["Contents"]
-                    ],
+                    Objects=[{"Key": entry["Key"]} for entry in response["Contents"]],
                 ),
             )
 
@@ -593,9 +594,13 @@ class CloudWatchAlarm(Resource):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("describe_alarms")
 
-        kwargs = dict(
-            AlarmNamePrefix=name_matcher.prefix,
-        ) if name_matcher.prefix else {}
+        kwargs = (
+            dict(
+                AlarmNamePrefix=name_matcher.prefix,
+            )
+            if name_matcher.prefix
+            else {}
+        )
 
         return [
             cls.from_arn(Arn(entry["AlarmArn"]))
@@ -621,9 +626,13 @@ class CloudWatchDashboard(Resource):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("list_dashboards")
 
-        kwargs = dict(
-            DashboardNamePrefix=name_matcher.prefix,
-        ) if name_matcher.prefix else {}
+        kwargs = (
+            dict(
+                DashboardNamePrefix=name_matcher.prefix,
+            )
+            if name_matcher.prefix
+            else {}
+        )
 
         return [
             cls.from_arn(Arn(entry["DashboardArn"]))
@@ -647,9 +656,13 @@ class CloudWatchEventRule(Resource):
         rule_paginator = client.get_paginator("list_rules")
         target_paginator = client.get_paginator("list_targets_by_rule")
 
-        kwargs = dict(
-            NamePrefix=name_matcher.prefix,
-        ) if name_matcher.prefix else {}
+        kwargs = (
+            dict(
+                NamePrefix=name_matcher.prefix,
+            )
+            if name_matcher.prefix
+            else {}
+        )
 
         named_rules = [
             cls.from_arn(Arn(entry["Arn"]))
@@ -703,9 +716,13 @@ class CloudWatchLogGroup(Resource):
         client = get_client("logs")
         paginator = client.get_paginator("describe_log_groups")
 
-        kwargs = dict(
-            logGroupNamePattern=name_matcher.prefix,
-        ) if name_matcher.prefix else {}
+        kwargs = (
+            dict(
+                logGroupNamePattern=name_matcher.prefix,
+            )
+            if name_matcher.prefix
+            else {}
+        )
 
         return [
             # For some reason the arn here takes the form of a 'log-stream'
@@ -1292,10 +1309,7 @@ class SecurityGroup(Resource):
         paginator = client.get_paginator("describe_security_groups")
         eni_paginator = client.get_paginator("describe_network_interfaces")
 
-        security_groups_by_id = {
-            resource.id: resource
-            for resource in resources
-        }
+        security_groups_by_id = {resource.id: resource for resource in resources}
         security_group_ids = list(security_groups_by_id.keys())
 
         for response in paginator.paginate(GroupIds=security_group_ids):
@@ -1436,9 +1450,13 @@ class SQSQueue(Resource):
         client = get_client("sqs")
         paginator = client.get_paginator("list_queues")
 
-        kwargs = dict(
-            QueueNamePrefix=name_matcher.prefix,
-        ) if name_matcher.prefix else {}
+        kwargs = (
+            dict(
+                QueueNamePrefix=name_matcher.prefix,
+            )
+            if name_matcher.prefix
+            else {}
+        )
 
         return [
             cls(name, name)
@@ -1493,6 +1511,7 @@ class StepFunction(Resource):
     def delete(self, get_client):
         client = get_client("stepfunctions")
         client.delete_state_machine(stateMachineArn=str(self.arn))
+
 
 #
 # End of resource subclasses
@@ -1774,10 +1793,7 @@ class NameMatcher:
         if not value.startswith(self.prefix):
             return False
 
-        return not any(
-            value.startswith(prefix)
-            for prefix in self.exclude
-        )
+        return not any(value.startswith(prefix) for prefix in self.exclude)
 
     def replace(self, old, new, count=-1):
         """Return a new NameMatcher with str.replace called on all string"""
@@ -1831,11 +1847,7 @@ class BooleanOptionalAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string in self.option_strings:
-            setattr(
-                namespace,
-                self.dest,
-                not option_string.startswith("--no-")
-            )
+            setattr(namespace, self.dest, not option_string.startswith("--no-"))
 
     def format_usage(self):
         return " | ".join(self.option_strings)
@@ -1859,7 +1871,7 @@ def _get_version() -> str:
     direct_url = json.loads(dist.read_text("direct_url.json"))
     editable = direct_url.get("dir_info", {}).get("editable", False)
     return (
-        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
+        f"{name} {'(editable) ' if editable else ''}{dist.version} "
         f"on Python {python_version()}"
     )
 
@@ -1896,29 +1908,35 @@ def main(args=None):
         "-a",
         help="Enable all extra collectors",
         action="store_true",
-        default=False
+        default=False,
     )
     collection_group.add_argument(
         "--collect-tagged",
         help="Collect all resources with matching Deployment tag",
         action=BooleanOptionalAction,
-        default=True
+        default=True,
     )
     collection_group.add_argument(
         "--collect-unnamed-roles",
         help="Collect IAM roles named terraform* with matching policy resources",
         action=BooleanOptionalAction,
-        default=False
+        default=False,
     )
 
     # Controling output
     output_group = parser.add_argument_group(title="output")
-    output_group.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
-    output_group.add_argument("--tags", help="Display all resource tags", action="store_true")
+    output_group.add_argument(
+        "--verbose", "-v", help="Verbosity level", action="count", default=0
+    )
+    output_group.add_argument(
+        "--tags", help="Display all resource tags", action="store_true"
+    )
 
     parser.add_argument("--version", action="version", version=_get_version())
     parser.add_argument("--profile", help="AWS profile")
-    parser.add_argument("--yes", "-y", help="Auto confirm prompts", action="store_true", default=False)
+    parser.add_argument(
+        "--yes", "-y", help="Auto confirm prompts", action="store_true", default=False
+    )
 
     args = parser.parse_args(args=args)
 
@@ -1939,13 +1957,9 @@ def main(args=None):
 
     collectors = []
     if args.collect_all or args.collect_tagged:
-        collectors.append(
-            TaggedResourceCollector(type_filters=args.filter)
-        )
+        collectors.append(TaggedResourceCollector(type_filters=args.filter))
     if args.collect_all or args.collect_unnamed_roles:
-        collectors.append(
-            UnnamedIAMRoleCollector(type_filters=args.filter)
-        )
+        collectors.append(UnnamedIAMRoleCollector(type_filters=args.filter))
     collectors.extend(
         cls
         for type_name, cls in Resource.TYPES.items()

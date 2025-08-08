@@ -6,7 +6,7 @@ DateRange = tuple[Optional[datetime], Optional[datetime]]
 
 
 @dataclass
-class EntryFilter():
+class EntryFilter:
     prefix_after: str = ""
     modified_date_range: DateRange = (None, None)
 

@@ -36,15 +36,12 @@ class TestInfo:
 
     def get_full_id(self, default_data_version: str) -> str:
         return (
-            f"{self.collection}/"
-            f"{self.data_version or default_data_version}/"
-            f"{self.name}"
+            f"{self.collection}/{self.data_version or default_data_version}/{self.name}"
         )
 
 
 class TestCollector(Protocol):
-    def collect_tests(self, filters: list[str]) -> dict[str, TestInfo]:
-        ...
+    def collect_tests(self, filters: list[str]) -> dict[str, TestInfo]: ...
 
 
 class BucketTestCollector:
@@ -58,7 +55,9 @@ class BucketTestCollector:
 
         log.debug("Collecting tests from bucket %s", self.test_bucket)
 
-        s3_entries: dict[tuple[str, Optional[str], str], list[FileDict]] = defaultdict(list)
+        s3_entries: dict[tuple[str, Optional[str], str], list[FileDict]] = defaultdict(
+            list
+        )
         for response in paginator.paginate(Bucket=self.test_bucket):
             for entry in response.get("Contents", ()):
                 key = entry["Key"]
@@ -69,16 +68,18 @@ class BucketTestCollector:
                 collection = path.parts[0]
                 data_version = (
                     path.parts[1]
-                    if DATA_VERSION_PATTERN.fullmatch(path.parts[1]) else
-                    None
+                    if DATA_VERSION_PATTERN.fullmatch(path.parts[1])
+                    else None
                 )
                 name = path.parts[-2]
-                s3_entries[(collection, data_version, name)].append({
-                    "Bucket": response["Name"],
-                    "Key": key,
-                    "Size": entry["Size"],
-                    "ETag": entry["ETag"],
-                })
+                s3_entries[(collection, data_version, name)].append(
+                    {
+                        "Bucket": response["Name"],
+                        "Key": key,
+                        "Size": entry["Size"],
+                        "ETag": entry["ETag"],
+                    }
+                )
 
         return {
             test.get_id(): test
