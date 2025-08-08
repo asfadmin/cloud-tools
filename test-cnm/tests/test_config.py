@@ -1,7 +1,7 @@
 import argparse
 
 import pytest
-from test_cnm.config import ConfigBasic, ConfigError, ConfigFull
+from common.config import ConfigBasic, ConfigError, ConfigFull
 
 
 def test_from_file_default(data_path):

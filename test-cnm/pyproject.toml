@@ -18,6 +18,7 @@ tcnm = "test_cnm:main.main"
 python = ">=3.9,<4"
 
 boto3 = "^1.28.76"
+common = { path = "../common" }
 tqdm = "^4.67.1"
 
 [tool.poetry.group.dev.dependencies]

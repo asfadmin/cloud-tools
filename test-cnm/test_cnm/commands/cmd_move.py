@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from test_cnm.config import ConfigBasic
+from common.config import ConfigBasic
 from test_cnm.metadata import Metadata
 
 log = logging.getLogger(__name__)

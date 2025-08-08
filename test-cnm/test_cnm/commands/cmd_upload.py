@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import cast
 
-from test_cnm.config import ConfigBasic
+from common.config import ConfigBasic
 from test_cnm.metadata import Metadata
 from test_cnm.uploader import Uploader
 

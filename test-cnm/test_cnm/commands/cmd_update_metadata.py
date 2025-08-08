@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import boto3
-from test_cnm.config import ConfigBasic
+from common.config import ConfigBasic
 from test_cnm.metadata import CHECKSUM_PATTERN, ChecksumWriter, Metadata
 
 log = logging.getLogger(__name__)

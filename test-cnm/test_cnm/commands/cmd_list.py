@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 
-from test_cnm.config import ConfigBasic
+from common.config import ConfigBasic
 from test_cnm.tester.collector import BucketTestCollector
 
 log = logging.getLogger(__name__)

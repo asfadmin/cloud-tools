@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from test_cnm.config import ConfigFull
+from common.config import ConfigFull
 from test_cnm.metadata import Metadata
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector

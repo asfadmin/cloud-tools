@@ -1,0 +1,14 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "common"
+version = "0.1.0"
+description = "Shared utilities for cloud-tools"
+authors = ["McKade Sorensen <dmsorensen@alaska.edu>"]
+readme = "README.md"
+packages = [{ include = "common" }]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4"
