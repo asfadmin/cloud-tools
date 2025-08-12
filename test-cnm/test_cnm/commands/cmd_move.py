@@ -13,7 +13,7 @@ def add_parser(
     parser_move = subparsers.add_parser(
         "move",
         aliases=["mv"],
-        help=("Move test products from one prefix to another and update metadata file"),
+        help="Move test products from one prefix to another and update metadata file",
     )
     parser_move.add_argument(
         "src",

@@ -26,7 +26,7 @@ def test_bucket(test_bucket):
                     "checksum": "22222222222222222222222222222222",
                 },
             }
-        ).encode()
+        ).encode(),
     )
 
     return test_bucket

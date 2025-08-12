@@ -35,9 +35,7 @@ class TestInfo:
         return f"{self.collection}/{self.name}"
 
     def get_full_id(self, default_data_version: str) -> str:
-        return (
-            f"{self.collection}/{self.data_version or default_data_version}/{self.name}"
-        )
+        return f"{self.collection}/{self.data_version or default_data_version}/{self.name}"
 
 
 class TestCollector(Protocol):
@@ -55,9 +53,7 @@ class BucketTestCollector:
 
         log.debug("Collecting tests from bucket %s", self.test_bucket)
 
-        s3_entries: dict[tuple[str, Optional[str], str], list[FileDict]] = defaultdict(
-            list
-        )
+        s3_entries: dict[tuple[str, Optional[str], str], list[FileDict]] = defaultdict(list)
         for response in paginator.paginate(Bucket=self.test_bucket):
             for entry in response.get("Contents", ()):
                 key = entry["Key"]
@@ -66,11 +62,7 @@ class BucketTestCollector:
                     continue
 
                 collection = path.parts[0]
-                data_version = (
-                    path.parts[1]
-                    if DATA_VERSION_PATTERN.fullmatch(path.parts[1])
-                    else None
-                )
+                data_version = path.parts[1] if DATA_VERSION_PATTERN.fullmatch(path.parts[1]) else None
                 name = path.parts[-2]
                 s3_entries[(collection, data_version, name)].append(
                     {

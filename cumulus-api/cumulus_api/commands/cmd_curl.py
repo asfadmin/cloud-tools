@@ -51,15 +51,15 @@ def add_parser(
         action="store_true",
     )
     parser_curl.add_argument(
-        "-X", "--request", help="set a custom request method to use", dest="method"
+        "-X",
+        "--request",
+        help="set a custom request method to use",
+        dest="method",
     )
     parser_curl.add_argument(
         "-H",
         "--header",
-        help=(
-            "extra header to include in the request when sending. Can be set "
-            "multiple times"
-        ),
+        help="extra header to include in the request when sending. Can be set multiple times",
         action="append",
         dest="headers",
         type=header,
@@ -71,7 +71,9 @@ def add_parser(
         help="sends the specified data in a POST request to the HTTP server",
     )
     parser_curl.add_argument(
-        "--pretty", help="pretty print output when possible", action="store_true"
+        "--pretty",
+        help="pretty print output when possible",
+        action="store_true",
     )
     parser_curl.set_defaults(func=cmd_curl)
 

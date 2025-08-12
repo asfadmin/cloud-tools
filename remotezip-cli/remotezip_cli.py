@@ -26,10 +26,7 @@ def _get_version() -> str:
     dist = Distribution.from_name(name)
     direct_url = json.loads(dist.read_text("direct_url.json"))
     editable = direct_url.get("dir_info", {}).get("editable", False)
-    return (
-        f"{name} {'(editable) ' if editable else ''}{dist.version} "
-        f"on Python {python_version()}"
-    )
+    return f"{name} {'(editable) ' if editable else ''}{dist.version} on Python {python_version()}"
 
 
 def url(value: str) -> ParseResult:
@@ -51,25 +48,21 @@ def get_parser() -> argparse.ArgumentParser:
 
     parser_extract = subparsers.add_parser(
         "extract",
-        aliases=(
-            "x",
-            "ex",
-        ),
+        aliases=("x", "ex"),
         help="Extract a member of an archive to stdout",
     )
     parser_extract.add_argument("url", help="URL of object to access", type=url)
     parser_extract.add_argument(
         "filename",
-        help=(
-            "File to extract from the archive. If none provided, list the "
-            "archive contents"
-        ),
+        help="File to extract from the archive. If none provided, list the archive contents",
         nargs="?",
     )
     parser_extract.set_defaults(func=cmd_extract)
 
     parser_list = subparsers.add_parser(
-        "list", aliases="l", help="List the members of an archive"
+        "list",
+        aliases="l",
+        help="List the members of an archive",
     )
     parser_list.add_argument("url", help="URL of object to access", type=url)
     zipinfo_group = parser_list.add_mutually_exclusive_group()
@@ -162,29 +155,74 @@ def cmd_list(args):
             align=">",
         ),
         "comment": ColumnInfo(
-            "Comment", "comment", lambda x: x.decode(errors="replace")
+            "Comment",
+            "comment",
+            lambda x: x.decode(errors="replace"),
         ),
-        "create_system": ColumnInfo("Create System", "create_system"),
-        "create_version": ColumnInfo("Create Version", "create_version"),
-        "date_time": ColumnInfo("Timestamp", "date_time", lambda x: str(datetime(*x))),
+        "create_system": ColumnInfo(
+            "Create System",
+            "create_system",
+        ),
+        "create_version": ColumnInfo(
+            "Create Version",
+            "create_version",
+        ),
+        "date_time": ColumnInfo(
+            "Timestamp",
+            "date_time",
+            lambda x: str(datetime(*x)),
+        ),
         "external_attr": ColumnInfo(
-            "File Attributes", "external_attr", str_external_attr
+            "File Attributes",
+            "external_attr",
+            str_external_attr,
         ),
-        "extra": ColumnInfo("Extra", "extra", lambda x: "0x" + hexlify(x).decode()),
+        "extra": ColumnInfo(
+            "Extra",
+            "extra",
+            lambda x: "0x" + hexlify(x).decode(),
+        ),
         "extract_version": ColumnInfo(
             "PKZIP Version",
             "extract_version",
         ),
         "file_size": ColumnInfo(
-            "Size", "file_size", lambda x: humanize.naturalsize(x, True), align=">"
+            "Size",
+            "file_size",
+            lambda x: humanize.naturalsize(x, True),
+            align=">",
         ),
-        "filename": ColumnInfo("Name", "filename"),
-        "flag_bits": ColumnInfo("Flag Bits", "flag_bits", bin, align=">"),
-        "header_offset": ColumnInfo("Header Offset", "header_offset", align=">"),
-        "internal_attr": ColumnInfo("Attributes", "internal_attr"),
-        "orig_filename": ColumnInfo("Original Name", "orig_filename"),
-        "reserved": ColumnInfo("Reserved", "reserved"),
-        "volume": ColumnInfo("Volume", "volume"),
+        "filename": ColumnInfo(
+            "Name",
+            "filename",
+        ),
+        "flag_bits": ColumnInfo(
+            "Flag Bits",
+            "flag_bits",
+            bin,
+            align=">",
+        ),
+        "header_offset": ColumnInfo(
+            "Header Offset",
+            "header_offset",
+            align=">",
+        ),
+        "internal_attr": ColumnInfo(
+            "Attributes",
+            "internal_attr",
+        ),
+        "orig_filename": ColumnInfo(
+            "Original Name",
+            "orig_filename",
+        ),
+        "reserved": ColumnInfo(
+            "Reserved",
+            "reserved",
+        ),
+        "volume": ColumnInfo(
+            "Volume",
+            "volume",
+        ),
     }
 
     table = DisplayTable()
@@ -243,12 +281,7 @@ class DisplayTable:
         print(*(f"{col.name:{col.align}{col.max_size}}" for col in self.columns))
         print(*("-" * col.max_size for col in self.columns))
         for line in self.rows:
-            print(
-                *(
-                    f"{val:{col.align}{col.max_size}}"
-                    for col, val in zip(self.columns, line)
-                )
-            )
+            print(*(f"{val:{col.align}{col.max_size}}" for col, val in zip(self.columns, line)))
 
 
 def main():

@@ -60,6 +60,7 @@ class EventGenerator:
         if lambda_configs := response.get("LambdaFunctionConfigurations"):
             lambda_client = self.session.client("lambda")
             self._notifiers.extend(
+                # ruff hint
                 LambdaNotifier(lambda_client, configuration, self.dry_run)
                 for configuration in lambda_configs
             )
@@ -67,6 +68,7 @@ class EventGenerator:
         if queue_configs := response.get("QueueConfigurations"):
             sqs_client = self.session.client("sqs")
             self._notifiers.extend(
+                # ruff hint
                 SQSQueueNotifier(sqs_client, configuration, self.dry_run)
                 for configuration in queue_configs
             )
@@ -74,6 +76,7 @@ class EventGenerator:
         if topic_configs := response.get("TopicConfigurations"):
             sns_client = self.session.client("sns")
             self._notifiers.extend(
+                # ruff hint
                 SNSTopicNotifier(sns_client, configuration, self.dry_run)
                 for configuration in topic_configs
             )
@@ -115,6 +118,7 @@ class EventGenerator:
                 http_headers = response_metadata["HTTPHeaders"]
 
                 filtered_entries = (
+                    # ruff hint
                     entry
                     for entry in response.get("Contents", ())
                     if not entry_filter or entry_filter.passes(entry)

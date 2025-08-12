@@ -93,6 +93,7 @@ def test_send_events(boto_session, test_bucket, mock_notifier):
 
     call_args_batch = mock_notifier.send_batch.call_args.args[0]
     event_object_keys = [
+        # ruff hint
         record["s3"]["object"]["key"]
         for event in call_args_batch
         for record in event["Records"]

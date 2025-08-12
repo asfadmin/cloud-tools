@@ -47,9 +47,7 @@ class CnmSGenerator:
             "identifier": name,
             "collection": collection,
             "version": "1.3",
-            "submissionTime": datetime.now(tz=timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%S.%fZ"
-            ),
+            "submissionTime": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "product": {
                 "name": name,
                 "dataVersion": data_version,

@@ -18,7 +18,7 @@ def test_bucket(test_bucket):
                     "type": "data",
                 },
             }
-        ).encode()
+        ).encode(),
     )
 
     return test_bucket

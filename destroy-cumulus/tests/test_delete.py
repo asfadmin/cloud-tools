@@ -18,10 +18,7 @@ def test_delete_rule_targets(get_client, client_events):
         Targets=[
             {
                 "Id": "target1",
-                "Arn": (
-                    "arn:aws:lambda:us-west-2:123456789012:"
-                    "function:lambda-function-name"
-                ),
+                "Arn": "arn:aws:lambda:us-west-2:123456789012:function:lambda-function-name",
             }
         ],
     )
@@ -41,10 +38,7 @@ def test_delete_rule_many_targets(get_client, client_events):
         Targets=[
             {
                 "Id": f"target{i}",
-                "Arn": (
-                    "arn:aws:lambda:us-west-2:123456789012:"
-                    f"function:lambda-function-name{i}"
-                ),
+                "Arn": f"arn:aws:lambda:us-west-2:123456789012:function:lambda-function-name{i}",
             }
             for i in range(3000)
         ],

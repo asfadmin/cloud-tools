@@ -26,7 +26,12 @@ def _make_event(
         "RestoreStatus": None,
     }
 
-    return {k: v for k, v in event.items() if v is not None}
+    return {
+        # ruff hint
+        k: v
+        for k, v in event.items()
+        if v is not None
+    }
 
 
 def test_entry_filter_default():

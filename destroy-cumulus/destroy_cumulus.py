@@ -78,9 +78,7 @@ class Arn:
     def __init__(self, arn):
         self._arn = arn
 
-        _arn, self.partition, self.service, self.region, self.account, ident = (
-            arn.split(":", 5)
-        )
+        _arn, self.partition, self.service, self.region, self.account, ident = arn.split(":", 5)
         colon_idx = ident.find(":")
         slash_idx = ident.find("/")
 
@@ -380,7 +378,8 @@ class UnnamedIAMRoleCollector:
                 version_id = response["Policy"]["DefaultVersionId"]
 
                 response = client.get_policy_version(
-                    PolicyArn=policy_arn, VersionId=version_id
+                    PolicyArn=policy_arn,
+                    VersionId=version_id,
                 )
                 document = response["Document"]
                 if isinstance(document, str):
@@ -391,13 +390,12 @@ class UnnamedIAMRoleCollector:
 
         return False
 
-    def _has_matching_inline_policy(
-        self, client, inline_policies, role_name, name_matcher
-    ):
+    def _has_matching_inline_policy(self, client, inline_policies, role_name, name_matcher):
         for response in inline_policies:
             for policy_name in response.get("PolicyNames", ()):
                 response = client.get_role_policy(
-                    RoleName=role_name, PolicyName=policy_name
+                    RoleName=role_name,
+                    PolicyName=policy_name,
                 )
                 document = response["PolicyDocument"]
                 if isinstance(document, str):
@@ -473,7 +471,11 @@ class ApiGateway(Resource):
             cls(
                 name,
                 entry["id"],
-                tags=[dict(Key=k, Value=v) for k, v in entry.get("tags", {}).items()],
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
             )
             for response in paginator.paginate()
             for entry in response.get("items", ())
@@ -505,6 +507,7 @@ class AthenaWorkGroup(Resource):
         response = client.list_work_groups()
 
         return [
+            # ruff hint
             cls(name, name)
             for entry in response.get("WorkGroups", ())
             if name_matcher.matches((name := entry["Name"]))
@@ -527,6 +530,7 @@ class Bucket(Resource):
         response = client.list_buckets()
 
         return [
+            # ruff hint
             cls(name, name)
             for entry in response.get("Buckets", ())
             if name_matcher.matches(name := entry["Name"])
@@ -545,7 +549,10 @@ class Bucket(Resource):
                 Bucket=self.name,
                 Delete=dict(
                     Objects=[
-                        {"Key": entry["Key"], "VersionId": entry["VersionId"]}
+                        {
+                            "Key": entry["Key"],
+                            "VersionId": entry["VersionId"],
+                        }
                         for entry in response["Versions"]
                     ],
                 ),
@@ -558,7 +565,12 @@ class Bucket(Resource):
             client.delete_objects(
                 Bucket=self.name,
                 Delete=dict(
-                    Objects=[{"Key": entry["Key"]} for entry in response["Contents"]],
+                    Objects=[
+                        {
+                            "Key": entry["Key"],
+                        }
+                        for entry in response["Contents"]
+                    ],
                 ),
             )
 
@@ -694,6 +706,7 @@ class CloudWatchEventRule(Resource):
         paginator = client.get_paginator("list_targets_by_rule")
 
         target_ids = [
+            # ruff hint
             entry["Id"]
             for response in paginator.paginate(Rule=self.name)
             for entry in response["Targets"]
@@ -734,6 +747,7 @@ class CloudWatchLogGroup(Resource):
             for response in paginator.paginate(**kwargs)
             for entry in response.get("logGroups", ())
             if any(
+                # ruff hint
                 section and name_matcher.matches(section)
                 for section in entry["logGroupName"].split("/")
             )
@@ -1462,8 +1476,7 @@ class SQSQueue(Resource):
             cls(name, name)
             for response in paginator.paginate(**kwargs)
             for url in response.get("QueueUrls", ())
-            if (m := cls.URL_PATTERN.match(url))
-            and name_matcher.matches(name := m.group(1))
+            if (m := cls.URL_PATTERN.match(url)) and name_matcher.matches(name := m.group(1))
         ]
 
     def delete(self, get_client):
@@ -1676,6 +1689,7 @@ class CumulusDestroyer:
         if collectors is None:
             collectors = [
                 *(
+                    # ruff hint
                     collector(type_filters=self.type_filters)
                     for collector in self.DEFAULT_EXTRA_COLLECTORS
                 ),
@@ -1688,6 +1702,7 @@ class CumulusDestroyer:
             ]
 
         resource_set = ResourceSet(
+            # ruff hint
             resource
             for collector in collectors
             for resource in self.gather_from(collector)
@@ -1826,11 +1841,7 @@ class BooleanOptionalAction(argparse.Action):
                 option_string = "--no-" + option_string[2:]
                 _option_strings.append(option_string)
 
-        if (
-            help is not None
-            and default is not None
-            and default is not argparse.SUPPRESS
-        ):
+        if help is not None and default is not None and default is not argparse.SUPPRESS:
             help += " (default: %(default)s)"
 
         super().__init__(
@@ -1847,7 +1858,11 @@ class BooleanOptionalAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string in self.option_strings:
-            setattr(namespace, self.dest, not option_string.startswith("--no-"))
+            setattr(
+                namespace,
+                self.dest,
+                not option_string.startswith("--no-"),
+            )
 
     def format_usage(self):
         return " | ".join(self.option_strings)
@@ -1870,10 +1885,7 @@ def _get_version() -> str:
     dist = Distribution.from_name(name)
     direct_url = json.loads(dist.read_text("direct_url.json"))
     editable = direct_url.get("dir_info", {}).get("editable", False)
-    return (
-        f"{name} {'(editable) ' if editable else ''}{dist.version} "
-        f"on Python {python_version()}"
-    )
+    return f"{name} {'(editable) ' if editable else ''}{dist.version} on Python {python_version()}"
 
 
 def main(args=None):
@@ -1894,10 +1906,7 @@ def main(args=None):
     )
     collection_group.add_argument(
         "--filter",
-        help=(
-            "Filter the type of resource to destroy "
-            f"(e.g. --filter {Bucket.TYPE_FILTER})"
-        ),
+        help=f"Filter the type of resource to destroy (e.g. --filter {Bucket.TYPE_FILTER})",
         nargs="*",
         default=(),
         choices=list(Resource.TYPES),
@@ -1925,18 +1934,12 @@ def main(args=None):
 
     # Controling output
     output_group = parser.add_argument_group(title="output")
-    output_group.add_argument(
-        "--verbose", "-v", help="Verbosity level", action="count", default=0
-    )
-    output_group.add_argument(
-        "--tags", help="Display all resource tags", action="store_true"
-    )
+    output_group.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
+    output_group.add_argument("--tags", help="Display all resource tags", action="store_true")
 
     parser.add_argument("--version", action="version", version=_get_version())
     parser.add_argument("--profile", help="AWS profile")
-    parser.add_argument(
-        "--yes", "-y", help="Auto confirm prompts", action="store_true", default=False
-    )
+    parser.add_argument("--yes", "-y", help="Auto confirm prompts", action="store_true", default=False)
 
     args = parser.parse_args(args=args)
 
@@ -1957,9 +1960,13 @@ def main(args=None):
 
     collectors = []
     if args.collect_all or args.collect_tagged:
-        collectors.append(TaggedResourceCollector(type_filters=args.filter))
+        collectors.append(
+            TaggedResourceCollector(type_filters=args.filter),
+        )
     if args.collect_all or args.collect_unnamed_roles:
-        collectors.append(UnnamedIAMRoleCollector(type_filters=args.filter))
+        collectors.append(
+            UnnamedIAMRoleCollector(type_filters=args.filter),
+        )
     collectors.extend(
         cls
         for type_name, cls in Resource.TYPES.items()

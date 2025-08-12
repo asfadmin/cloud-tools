@@ -10,7 +10,8 @@ def add_parser(
     subparser: argparse._SubParsersAction,
 ) -> argparse.ArgumentParser:
     parser_test = subparser.add_parser(
-        "test", help="Run a full end to end event based ingest test"
+        "test",
+        help="Run a full end to end event based ingest test",
     )
     parser_test.add_argument(
         "--mission",

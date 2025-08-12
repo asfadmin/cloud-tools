@@ -21,10 +21,7 @@ def _get_version() -> str:
     dist = Distribution.from_name(name)
     direct_url = json.loads(dist.read_text("direct_url.json"))
     editable = direct_url.get("dir_info", {}).get("editable", False)
-    return (
-        f"{name} {'(editable) ' if editable else ''}{dist.version} "
-        f"on Python {python_version()}"
-    )
+    return f"{name} {'(editable) ' if editable else ''}{dist.version} on Python {python_version()}"
 
 
 def get_parser() -> argparse.ArgumentParser:

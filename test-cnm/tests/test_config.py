@@ -31,7 +31,10 @@ def test_from_file_environment(data_path):
 
 def test_from_file_inheritance(data_path):
     config = ConfigBasic.from_file(
-        [data_path / "home_testcnm.cfg", data_path / "partial_testcnm.cfg"]
+        [
+            data_path / "home_testcnm.cfg",
+            data_path / "partial_testcnm.cfg",
+        ]
     )
 
     assert config.profile == "home-sbx"
@@ -39,12 +42,18 @@ def test_from_file_inheritance(data_path):
 
 
 def test_from_file_empty(data_path):
-    with pytest.raises(ConfigError, match="environment 'default' not found"):
+    with pytest.raises(
+        ConfigError,
+        match="environment 'default' not found",
+    ):
         ConfigBasic.from_file(data_path / "empty.cfg")
 
 
 def test_from_file_nonexistent(data_path):
-    with pytest.raises(ConfigError, match="environment 'default' not found"):
+    with pytest.raises(
+        ConfigError,
+        match="environment 'default' not found",
+    ):
         ConfigBasic.from_file(data_path / "does_not_exist.cfg")
 
 

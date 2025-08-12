@@ -100,8 +100,7 @@ def test_arn_iam_role():
 
 def test_arn_iam_policy():
     arn = Arn(
-        "arn:aws:iam::123456789012:"
-        "policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy",
+        "arn:aws:iam::123456789012:policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy",
     )
 
     assert arn.partition == "aws"
@@ -162,8 +161,7 @@ def test_arn_cloudwatch_log_group():
 
 def test_arn_cloudwatch_log_stream():
     arn = Arn(
-        "arn:aws:logs:us-west-2:123456789012:"
-        "log-group:/aws/rds/cluster/cluster-name/postgresql:*",
+        "arn:aws:logs:us-west-2:123456789012:log-group:/aws/rds/cluster/cluster-name/postgresql:*",
     )
 
     assert arn.partition == "aws"

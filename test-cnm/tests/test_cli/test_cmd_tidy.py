@@ -38,7 +38,7 @@ def test_bucket(test_bucket):
                     "type": "metadata",
                 },
             }
-        ).encode()
+        ).encode(),
     )
 
     return test_bucket

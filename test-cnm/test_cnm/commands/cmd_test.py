@@ -22,9 +22,7 @@ def add_parser(
     )
     parser_test.add_argument(
         "filter",
-        help=(
-            "Glob pattern to filter tests by. Can include '*', '?' and '[]' expressions"
-        ),
+        help="Glob pattern to filter tests by. Can include '*', '?' and '[]' expressions",
         nargs="*",
         default=[],
     )
