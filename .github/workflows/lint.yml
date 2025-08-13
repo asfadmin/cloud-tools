@@ -4,9 +4,23 @@ on:
   pull_request:
 
 jobs:
+  flake8:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - uses: TrueBrain/actions-flake8@v2
+        with:
+          flake8_version: 6.0.0
+          max_line_length: 120
+          plugins: flake8-isort==6.0.0 flake8-quotes==3.3.2
+
   ruff-format:
     runs-on: ubuntu-latest
-    name: ruff
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
