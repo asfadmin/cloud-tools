@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  ruff-format:
     runs-on: ubuntu-latest
     name: ruff
     steps:
@@ -12,6 +12,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.11
-      - uses: astral-sh/ruff-action@v1
+      - uses: astral-sh/ruff-action@v3
         with:
-          args: check . --output-format github
+          version: "~=0.13.3"
+          args: format --check --diff --output-format=github
