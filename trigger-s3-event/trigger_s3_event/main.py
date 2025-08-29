@@ -12,7 +12,12 @@ import boto3
 import dateparser
 from trigger_s3_event.entry_filter import EntryFilter
 from trigger_s3_event.event_generator import EventGenerator
-from trigger_s3_event.notifier import Notifier, SNSTopicNotifier, SQSQueueNotifier
+from trigger_s3_event.notifier import (
+    LambdaNotifier,
+    Notifier,
+    SNSTopicNotifier,
+    SQSQueueNotifier,
+)
 
 log = logging.getLogger(__name__)
 
@@ -136,17 +141,15 @@ def main(args: Optional[list[str]] = None):
     session = boto3.Session(profile_name=pargs.profile)
     override_notifiers: list[Notifier] = []
     if pargs.notify:
-        if ":sqs:" in pargs.notify:
-            sqs_client = session.client("sqs")
+        if ":lambda:" in pargs.notify:
+            lambda_client = session.client("lambda")
             override_notifiers.append(
-                SQSQueueNotifier(
-                    sqs_client,
+                LambdaNotifier(
+                    lambda_client,
                     {
-                        # For configuration structure including field order see:
-                        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_notification_configuration.html
                         "Id": f"trigger-s3-event-override-{uuid.uuid4()}",
                         "Events": ["s3:ObjectCreated:*"],
-                        "QueueArn": pargs.notify,
+                        "TopicArn": pargs.notify,
                     },
                     pargs.dryrun,
                 ),
@@ -160,6 +163,21 @@ def main(args: Optional[list[str]] = None):
                         "Id": f"trigger-s3-event-override-{uuid.uuid4()}",
                         "Events": ["s3:ObjectCreated:*"],
                         "TopicArn": pargs.notify,
+                    },
+                    pargs.dryrun,
+                ),
+            )
+        elif ":sqs:" in pargs.notify:
+            sqs_client = session.client("sqs")
+            override_notifiers.append(
+                SQSQueueNotifier(
+                    sqs_client,
+                    {
+                        # For configuration structure including field order see:
+                        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_notification_configuration.html
+                        "Id": f"trigger-s3-event-override-{uuid.uuid4()}",
+                        "Events": ["s3:ObjectCreated:*"],
+                        "QueueArn": pargs.notify,
                     },
                     pargs.dryrun,
                 ),

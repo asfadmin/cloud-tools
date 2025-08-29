@@ -91,6 +91,29 @@ class Notifier(ABC):
             self.send_batch(batch)
 
 
+class LambdaNotifier(Notifier):
+    def __init__(
+        self,
+        client: boto3.client,
+        configuration: dict,
+        dry_run: bool = False,
+    ):
+        super().__init__(client, configuration, dry_run)
+        self.arn = configuration["LambdaFunctionArn"]
+
+    def send_batch(self, batch: list[dict]):
+        for event in batch:
+            if self.dry_run:
+                log.info("dryrun: Would invoke lambda: %s", self.arn)
+                _pretty_print_entries([event])
+            else:
+                self.client.invoke(
+                    FunctionName=self.arn,
+                    InvocationType="Event",
+                    Payload=json.dumps(event).encode(),
+                )
+
+
 class SNSTopicNotifier(Notifier):
     def __init__(
         self,

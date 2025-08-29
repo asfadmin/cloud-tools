@@ -5,7 +5,12 @@ from typing import Optional
 
 import boto3
 from trigger_s3_event.entry_filter import EntryFilter
-from trigger_s3_event.notifier import Notifier, SNSTopicNotifier, SQSQueueNotifier
+from trigger_s3_event.notifier import (
+    LambdaNotifier,
+    Notifier,
+    SNSTopicNotifier,
+    SQSQueueNotifier,
+)
 from trigger_s3_event.template import FormatValue
 
 log = logging.getLogger(__name__)
@@ -49,18 +54,22 @@ class EventGenerator():
 
         self._notifiers = []
 
+        if response.get("EventBridgeConfiguration"):
+            log.warning("WARNING: Unhandled EventBridge configuration(s)")
+
+        if (lambda_configs := response.get("LambdaFunctionConfigurations")):
+            lambda_client = self.session.client("lambda")
+            self._notifiers.extend(
+                LambdaNotifier(lambda_client, configuration, self.dry_run)
+                for configuration in lambda_configs
+            )
+
         if (queue_configs := response.get("QueueConfigurations")):
             sqs_client = self.session.client("sqs")
             self._notifiers.extend(
                 SQSQueueNotifier(sqs_client, configuration, self.dry_run)
                 for configuration in queue_configs
             )
-
-        if response.get("LambdaFunctionConfigurations"):
-            log.warning("WARNING: Unhandled Lambda configuration(s)")
-
-        if response.get("EventBridgeConfiguration"):
-            log.warning("WARNING: Unhandled EventBridge configuration(s)")
 
         if (topic_configs := response.get("TopicConfigurations")):
             sns_client = self.session.client("sns")
