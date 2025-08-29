@@ -61,11 +61,11 @@ def test_passes_filter_rules():
                 "Key": {
                     "FilterRules": [
                         {
-                            "Name": "prefix",
+                            "Name": "Prefix",
                             "Value": "foo",
                         },
                         {
-                            "Name": "suffix",
+                            "Name": "Suffix",
                             "Value": "bar",
                         },
                     ],

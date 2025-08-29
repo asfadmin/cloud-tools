@@ -67,9 +67,9 @@ class Notifier(ABC):
             for rule in key_name_filter.get("FilterRules", ()):
                 name, value = rule["Name"], rule["Value"]
 
-                if name == "prefix" and not key.startswith(value):
+                if name == "Prefix" and not key.startswith(value):
                     return False
-                if name == "suffix" and not key.endswith(value):
+                if name == "Suffix" and not key.endswith(value):
                     return False
 
         return True
