@@ -84,6 +84,11 @@ def get_parser() -> argparse.ArgumentParser:
         help="Log notifications to the console instead of sending them",
         action="store_true",
     )
+    parser.add_argument(
+        "--limit",
+        help="Limit the number of notifications sent",
+        type=int,
+    )
 
     filter_group = parser.add_argument_group(title="filter options")
     filter_group.add_argument(
@@ -171,6 +176,7 @@ def main(args: Optional[list[str]] = None):
         session,
         bucket=pargs.bucket,
         dry_run=pargs.dryrun,
+        limit=pargs.limit,
     )
 
     event_generator.send_events(

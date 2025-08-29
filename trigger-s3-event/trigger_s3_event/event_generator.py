@@ -17,10 +17,12 @@ class EventGenerator():
         session: boto3.Session,
         bucket: str,
         dry_run: bool = False,
+        limit: Optional[int] = None,
     ):
         self.session = session
         self.bucket = bucket
         self.dry_run = dry_run
+        self.limit = limit
 
         self._user_identity: Optional[str] = None
         self._notifiers: Optional[list[Notifier]] = None
@@ -87,6 +89,7 @@ class EventGenerator():
                 notifier.configuration_id,
             )
 
+        entry_count = 0
         with contextlib.ExitStack() as stack:
             for notifier in notifiers:
                 stack.enter_context(notifier)
@@ -108,12 +111,17 @@ class EventGenerator():
                     if not entry_filter or entry_filter.passes(entry)
                 )
                 for entry in filtered_entries:
+                    if self.limit is not None and entry_count >= self.limit:
+                        log.info("Entry limit %d reached", self.limit)
+                        return
+
                     log.info(
                         "%s %s %s",
                         entry["LastModified"],
                         entry["Size"],
                         entry["Key"],
                     )
+
                     for notifier in notifiers:
                         notifier.batched_notify(
                             event_name=event_name,
@@ -123,6 +131,8 @@ class EventGenerator():
                             ),
                             entry=entry,
                         )
+
+                    entry_count += 1
 
     def get_record_template(self, event_name: str, http_headers: dict) -> dict:
         # Message structure including field order from:
