@@ -67,9 +67,9 @@ class Notifier(ABC):
             for rule in key_name_filter.get("FilterRules", ()):
                 name, value = rule["Name"], rule["Value"]
 
-                if name == "prefix" and not key.startswith(value):
+                if name == "Prefix" and not key.startswith(value):
                     return False
-                if name == "suffix" and not key.endswith(value):
+                if name == "Suffix" and not key.endswith(value):
                     return False
 
         return True
@@ -89,6 +89,29 @@ class Notifier(ABC):
             batch, self._current_batch = self._current_batch, []
 
             self.send_batch(batch)
+
+
+class LambdaNotifier(Notifier):
+    def __init__(
+        self,
+        client: boto3.client,
+        configuration: dict,
+        dry_run: bool = False,
+    ):
+        super().__init__(client, configuration, dry_run)
+        self.arn = configuration["LambdaFunctionArn"]
+
+    def send_batch(self, batch: list[dict]):
+        for event in batch:
+            if self.dry_run:
+                log.info("dryrun: Would invoke lambda: %s", self.arn)
+                _pretty_print_entries([event])
+            else:
+                self.client.invoke(
+                    FunctionName=self.arn,
+                    InvocationType="Event",
+                    Payload=json.dumps(event).encode(),
+                )
 
 
 class SNSTopicNotifier(Notifier):
