@@ -35,6 +35,7 @@ class TestRun:
         self.pending_tests = {}
 
         # Stats
+        self.num_skipped = 0
         self.num_started = 0
         self.num_succeeded = 0
         self.num_failed = 0
@@ -73,6 +74,7 @@ class TestRun:
                     test.get_id(),
                     self.pending_tests[test.name].get_id(),
                 )
+                self.num_skipped += 1
                 continue
 
             log.info("Starting: %s", test.get_id())
@@ -124,8 +126,10 @@ class TestRun:
                 log.info("PENDING\t| %s", test.get_id())
 
         log.info(
-            "Totals: %s Succeeded; %s Failed of %s tests",
+            "Totals: %s Succeeded; %s Failed; %s Pending of %s tests%s",
             self.num_succeeded,
             self.num_failed,
+            len(self.pending_tests),
             self.num_started,
+            f" ({self.num_skipped} skipped)" if self.num_skipped else "",
         )
