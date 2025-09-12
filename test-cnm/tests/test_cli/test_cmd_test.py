@@ -164,4 +164,4 @@ def test_test(cnm_responder, caplog):
         "already started test COLLECTION_1/PRODUCT_1"
     ) in caplog.text
     assert "SUCCESS\t| COLLECTION_1/PRODUCT_1" in caplog.text
-    assert "Totals: 1 Succeeded; 0 Failed of 1 tests" in caplog.text
+    assert "Totals: 1 Succeeded; 0 Failed; 0 Pending of 1 tests (1 skipped)" in caplog.text
