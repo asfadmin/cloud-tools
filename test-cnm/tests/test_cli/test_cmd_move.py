@@ -10,12 +10,16 @@ def test_bucket(test_bucket):
     obj1.put(Body=b"")
 
     metadata = test_bucket.Object("metadata.json")
-    metadata.put(Body=json.dumps({
-        obj1.key: {
-            "checksum": "11111111111111111111111111111111",
-            "type": "data",
-        },
-    }).encode())
+    metadata.put(
+        Body=json.dumps(
+            {
+                obj1.key: {
+                    "checksum": "11111111111111111111111111111111",
+                    "type": "data",
+                },
+            }
+        ).encode(),
+    )
 
     return test_bucket
 

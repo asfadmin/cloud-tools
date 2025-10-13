@@ -9,14 +9,13 @@ class FormatValue:
 def replace(template, **kwargs):
     if isinstance(template, dict):
         return {
+            # ruff hint
             replace(k, **kwargs): replace(v, **kwargs)
             for k, v in template.items()
         }
 
     if isinstance(template, list):
-        return [
-            replace(v, **kwargs) for v in template
-        ]
+        return [replace(v, **kwargs) for v in template]
 
     if isinstance(template, FormatValue):
         return template.format(**kwargs)

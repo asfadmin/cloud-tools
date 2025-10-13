@@ -28,7 +28,7 @@ class CnmIngestClient:
         collection: str,
         data_version: str,
         name: str,
-        files: list
+        files: list,
     ):
         cnm_s = self.make_cnm_s(collection, data_version, name, files)
         self._requests[(name, cnm_s["submissionTime"])] = True
@@ -44,6 +44,7 @@ class CnmIngestClient:
 
     def get_responses(self):
         return {
+            # ruff hint
             name: cnm_r
             for name, cnm_r in self.iter_responses()
         }
@@ -65,7 +66,7 @@ class CnmIngestClient:
 
                 self.client.delete_message(
                     QueueUrl=self.response_queue,
-                    ReceiptHandle=message["ReceiptHandle"]
+                    ReceiptHandle=message["ReceiptHandle"],
                 )
 
                 yield name, cnm_r

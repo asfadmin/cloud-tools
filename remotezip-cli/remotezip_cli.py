@@ -26,10 +26,7 @@ def _get_version() -> str:
     dist = Distribution.from_name(name)
     direct_url = json.loads(dist.read_text("direct_url.json"))
     editable = direct_url.get("dir_info", {}).get("editable", False)
-    return (
-        f"{name} {f'(editable) ' if editable else ''}{dist.version} "
-        f"on Python {python_version()}"
-    )
+    return f"{name} {'(editable) ' if editable else ''}{dist.version} on Python {python_version()}"
 
 
 def url(value: str) -> ParseResult:
@@ -46,34 +43,32 @@ def get_parser() -> argparse.ArgumentParser:
         title="command",
         required=True,
         # Without this, the 'required' option doesn't work
-        dest="command"
+        dest="command",
     )
 
     parser_extract = subparsers.add_parser(
         "extract",
-        aliases=("x", "ex",),
-        help="Extract a member of an archive to stdout"
+        aliases=("x", "ex"),
+        help="Extract a member of an archive to stdout",
     )
     parser_extract.add_argument("url", help="URL of object to access", type=url)
     parser_extract.add_argument(
         "filename",
-        help=(
-            "File to extract from the archive. If none provided, list the "
-            "archive contents"
-        ),
-        nargs="?"
+        help="File to extract from the archive. If none provided, list the archive contents",
+        nargs="?",
     )
     parser_extract.set_defaults(func=cmd_extract)
 
     parser_list = subparsers.add_parser(
         "list",
         aliases="l",
-        help="List the members of an archive"
+        help="List the members of an archive",
     )
     parser_list.add_argument("url", help="URL of object to access", type=url)
     zipinfo_group = parser_list.add_mutually_exclusive_group()
     zipinfo_group.add_argument(
-        "--zipinfo", "-Z",
+        "--zipinfo",
+        "-Z",
         help="Define the attributes to print out for each ZipInfo entry",
         nargs="*",
         action="extend",
@@ -82,12 +77,13 @@ def get_parser() -> argparse.ArgumentParser:
             for name, _ in inspect.getmembers(zipfile.ZipInfo, inspect.isdatadescriptor)
             if not name.startswith("_")
         ],
-        default=None
+        default=None,
     )
     zipinfo_group.add_argument(
-        "--compressed", "-c",
+        "--compressed",
+        "-c",
         help="Show details about the compressed contents of files",
-        action="store_true"
+        action="store_true",
     )
     parser_list.set_defaults(func=cmd_list)
 
@@ -109,7 +105,7 @@ def get_request_params(args: argparse.Namespace):
             aws_token=credentials.token,
             aws_host=host,
             aws_region=session.region_name,
-            aws_service="s3"
+            aws_service="s3",
         )
         headers = {"x-amz-content-sha256": sha256(b"").hexdigest()}
     else:
@@ -150,41 +146,41 @@ def cmd_list(args):
         "compress_type": ColumnInfo(
             "Comp. Type",
             "compress_type",
-            lambda x: zipfile.compressor_names.get(x) or str(x)
+            lambda x: zipfile.compressor_names.get(x) or str(x),
         ),
         "compress_size": ColumnInfo(
             "Comp. Size",
             "compress_size",
             lambda x: humanize.naturalsize(x, True),
-            align=">"
+            align=">",
         ),
         "comment": ColumnInfo(
             "Comment",
             "comment",
-            lambda x: x.decode(errors="replace")
+            lambda x: x.decode(errors="replace"),
         ),
         "create_system": ColumnInfo(
             "Create System",
-            "create_system"
+            "create_system",
         ),
         "create_version": ColumnInfo(
             "Create Version",
-            "create_version"
+            "create_version",
         ),
         "date_time": ColumnInfo(
             "Timestamp",
             "date_time",
-            lambda x: str(datetime(*x))
+            lambda x: str(datetime(*x)),
         ),
         "external_attr": ColumnInfo(
             "File Attributes",
             "external_attr",
-            str_external_attr
+            str_external_attr,
         ),
         "extra": ColumnInfo(
             "Extra",
             "extra",
-            lambda x: "0x" + hexlify(x).decode()
+            lambda x: "0x" + hexlify(x).decode(),
         ),
         "extract_version": ColumnInfo(
             "PKZIP Version",
@@ -194,39 +190,39 @@ def cmd_list(args):
             "Size",
             "file_size",
             lambda x: humanize.naturalsize(x, True),
-            align=">"
+            align=">",
         ),
         "filename": ColumnInfo(
             "Name",
-            "filename"
+            "filename",
         ),
         "flag_bits": ColumnInfo(
             "Flag Bits",
             "flag_bits",
             bin,
-            align=">"
+            align=">",
         ),
         "header_offset": ColumnInfo(
             "Header Offset",
             "header_offset",
-            align=">"
+            align=">",
         ),
         "internal_attr": ColumnInfo(
             "Attributes",
-            "internal_attr"
+            "internal_attr",
         ),
         "orig_filename": ColumnInfo(
             "Original Name",
-            "orig_filename"
+            "orig_filename",
         ),
         "reserved": ColumnInfo(
             "Reserved",
-            "reserved"
+            "reserved",
         ),
         "volume": ColumnInfo(
             "Volume",
-            "volume"
-        )
+            "volume",
+        ),
     }
 
     table = DisplayTable()
@@ -282,16 +278,10 @@ class DisplayTable:
             col_info.max_size = max(len(col), col_info.max_size)
 
     def display(self):
-        print(*(
-            f"{col.name:{col.align}{col.max_size}}"
-            for col in self.columns
-        ))
+        print(*(f"{col.name:{col.align}{col.max_size}}" for col in self.columns))
         print(*("-" * col.max_size for col in self.columns))
         for line in self.rows:
-            print(*(
-                f"{val:{col.align}{col.max_size}}"
-                for col, val in zip(self.columns, line)
-            ))
+            print(*(f"{val:{col.align}{col.max_size}}" for col, val in zip(self.columns, line)))
 
 
 def main():

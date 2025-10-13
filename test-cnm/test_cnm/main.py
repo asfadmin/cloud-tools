@@ -35,15 +35,9 @@ def _get_version() -> str:
         dist = Distribution.from_name(name)
         direct_url = json.loads(dist.read_text("direct_url.json"))
         editable = direct_url.get("dir_info", {}).get("editable", False)
-        return (
-            f"{name} {'(editable) ' if editable else ''}{dist.version} "
-            f"on Python {python_version()}"
-        )
+        return f"{name} {'(editable) ' if editable else ''}{dist.version} on Python {python_version()}"
     except PackageNotFoundError:
-        return (
-            f"{name} from source "
-            f"on Python {python_version()}"
-        )
+        return f"{name} from source on Python {python_version()}"
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -60,10 +54,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--environment",
         "-e",
-        help=(
-            "Config environment to use. "
-            "Config is read from a testcnm.cfg file in the current directory."
-        ),
+        help="Config environment to use. Config is read from a testcnm.cfg file in the current directory.",
     )
     parser.add_argument("--profile", help="AWS profile name")
     parser.add_argument(
@@ -90,10 +81,7 @@ def get_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--default-data-version",
-        help=(
-            "Data version to use in the CNM-S if none is explicitly set in the "
-            "object key"
-        ),
+        help="Data version to use in the CNM-S if none is explicitly set in the object key",
     )
     parser.add_argument(
         "--trace",

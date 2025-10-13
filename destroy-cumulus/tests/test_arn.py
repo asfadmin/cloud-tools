@@ -20,8 +20,7 @@ def test_arn_s3_bucket():
 
 def test_arn_lambda_function():
     arn = Arn(
-        "arn:aws:lambda:us-west-2:123456789012:"
-        "function:lambda-function-name",
+        "arn:aws:lambda:us-west-2:123456789012:function:lambda-function-name",
     )
 
     assert arn.partition == "aws"
@@ -32,6 +31,7 @@ def test_arn_lambda_function():
     assert arn.name == "lambda-function-name"
     assert arn.id == "lambda-function-name"
     assert arn.type_id == "lambda:function"
+
 
 #
 # Only slashes in identifier
@@ -53,8 +53,7 @@ def test_arn_s3_bucket_object():
 
 def test_arn_dynamodb_table():
     arn = Arn(
-        "arn:aws:dynamodb:us-west-2:123456789012:"
-        "table/table-name",
+        "arn:aws:dynamodb:us-west-2:123456789012:table/table-name",
     )
 
     assert arn.partition == "aws"
@@ -86,8 +85,7 @@ def test_arn_cloudformation():
 
 def test_arn_iam_role():
     arn = Arn(
-        "arn:aws:iam::123456789012:"
-        "role/ngap/system/s3-all-region-access-role",
+        "arn:aws:iam::123456789012:role/ngap/system/s3-all-region-access-role",
     )
 
     assert arn.partition == "aws"
@@ -102,8 +100,7 @@ def test_arn_iam_role():
 
 def test_arn_iam_policy():
     arn = Arn(
-        "arn:aws:iam::123456789012:"
-        "policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy",
+        "arn:aws:iam::123456789012:policy/service-role/rew-n-cumulus-dev-nisar-lambda_role_sqs_policy",
     )
 
     assert arn.partition == "aws"
@@ -141,6 +138,7 @@ def test_arn_api_gateway_stage():
     assert arn.id == "d36my9ab58/dev"
     assert arn.type_id == "apigateway:restapis-stages"
 
+
 #
 # Colons and slashes in identifier
 #
@@ -148,8 +146,7 @@ def test_arn_api_gateway_stage():
 
 def test_arn_cloudwatch_log_group():
     arn = Arn(
-        "arn:aws:logs:us-west-2:123456789012:"
-        "log-group:/aws/lambda/lambda-name",
+        "arn:aws:logs:us-west-2:123456789012:log-group:/aws/lambda/lambda-name",
     )
 
     assert arn.partition == "aws"
@@ -164,8 +161,7 @@ def test_arn_cloudwatch_log_group():
 
 def test_arn_cloudwatch_log_stream():
     arn = Arn(
-        "arn:aws:logs:us-west-2:123456789012:"
-        "log-group:/aws/rds/cluster/cluster-name/postgresql:*",
+        "arn:aws:logs:us-west-2:123456789012:log-group:/aws/rds/cluster/cluster-name/postgresql:*",
     )
 
     assert arn.partition == "aws"
@@ -179,9 +175,7 @@ def test_arn_cloudwatch_log_stream():
 
 
 def test_arn_ecs_service():
-    arn = Arn(
-        "arn:aws:ecs:us-west-2:123456789012:service/cluster-name/service-name"
-    )
+    arn = Arn("arn:aws:ecs:us-west-2:123456789012:service/cluster-name/service-name")
 
     assert arn.partition == "aws"
     assert arn.service == "ecs"

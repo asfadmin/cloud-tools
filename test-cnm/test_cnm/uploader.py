@@ -53,7 +53,7 @@ def _get_s3_object_key(
 ) -> str:
     if not collection.isupper():
         raise Exception(
-            f"Collection name '{collection}' should be uppercase!"
+            f"Collection name '{collection}' should be uppercase!",
         )
 
     product = product or path.parent.name

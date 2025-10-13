@@ -27,6 +27,7 @@ def _make_event(
     }
 
     return {
+        # ruff hint
         k: v
         for k, v in event.items()
         if v is not None
@@ -82,9 +83,12 @@ def test_entry_filter_modified_date_range_begin():
         _make_event("foo", datetime.now(timezone.utc)),
     )
 
-    assert entry_filter.passes(
-        _make_event("foo", datetime(2000, 1, 1, tzinfo=timezone.utc)),
-    ) is False
+    assert (
+        entry_filter.passes(
+            _make_event("foo", datetime(2000, 1, 1, tzinfo=timezone.utc)),
+        )
+        is False
+    )
 
 
 def test_entry_filter_modified_date_range_end():
@@ -102,13 +106,19 @@ def test_entry_filter_modified_date_range_end():
         _make_event("foo", datetime(1980, 1, 1, tzinfo=timezone.utc)),
     )
 
-    assert entry_filter.passes(
-        _make_event("foo", datetime(2024, 1, 1, tzinfo=timezone.utc)),
-    ) is False
+    assert (
+        entry_filter.passes(
+            _make_event("foo", datetime(2024, 1, 1, tzinfo=timezone.utc)),
+        )
+        is False
+    )
     # Current date
-    assert entry_filter.passes(
-        _make_event("foo", datetime.now(timezone.utc)),
-    ) is False
+    assert (
+        entry_filter.passes(
+            _make_event("foo", datetime.now(timezone.utc)),
+        )
+        is False
+    )
 
 
 def test_entry_filter_modified_date_range():
@@ -123,9 +133,15 @@ def test_entry_filter_modified_date_range():
         _make_event("foo", datetime(2021, 1, 1, tzinfo=timezone.utc)),
     )
 
-    assert entry_filter.passes(
-        _make_event("foo", datetime(1980, 1, 1, tzinfo=timezone.utc)),
-    ) is False
-    assert entry_filter.passes(
-        _make_event("foo", datetime(2024, 1, 1, tzinfo=timezone.utc)),
-    ) is False
+    assert (
+        entry_filter.passes(
+            _make_event("foo", datetime(1980, 1, 1, tzinfo=timezone.utc)),
+        )
+        is False
+    )
+    assert (
+        entry_filter.passes(
+            _make_event("foo", datetime(2024, 1, 1, tzinfo=timezone.utc)),
+        )
+        is False
+    )

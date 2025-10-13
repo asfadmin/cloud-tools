@@ -3,7 +3,8 @@ from destroy_cumulus import pluralize
 
 
 @pytest.mark.parametrize(
-    "inp,out", (
+    "inp,out",
+    (
         ("Foo", "Foos"),
         ("Bucket", "Buckets"),
         ("Stack", "Stacks"),
@@ -15,7 +16,8 @@ def test_easy(inp, out):
 
 
 @pytest.mark.parametrize(
-    "inp,out", (
+    "inp,out",
+    (
         ("Policy", "Policies"),
         ("Activity", "Activities"),
         ("Category", "Categories"),
@@ -27,7 +29,8 @@ def test_ies(inp, out):
 
 
 @pytest.mark.parametrize(
-    "inp,out", (
+    "inp,out",
+    (
         ("Gateway", "Gateways"),
         ("Key", "Keys"),
         ("Toy", "Toys"),

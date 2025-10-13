@@ -19,15 +19,19 @@ def test_bucket(test_bucket):
     obj3.put(Body=b"")
 
     metadata = test_bucket.Object("metadata.json")
-    metadata.put(Body=json.dumps({
-        obj1.key: {
-            "checksum": "11111111111111111111111111111111",
-            "type": "data",
-        },
-        obj1.key: {
-            "checksum": "22222222222222222222222222222222",
-        },
-    }).encode())
+    metadata.put(
+        Body=json.dumps(
+            {
+                obj1.key: {
+                    "checksum": "11111111111111111111111111111111",
+                    "type": "data",
+                },
+                obj1.key: {
+                    "checksum": "22222222222222222222222222222222",
+                },
+            }
+        ).encode(),
+    )
 
     return test_bucket
 
@@ -160,8 +164,7 @@ def test_test(cnm_responder, caplog):
 
     assert "Starting: COLLECTION_1/PRODUCT_1" in caplog.text
     assert (
-        "Skipping COLLECTION_2/PRODUCT_1 as the product name conflicts with "
-        "already started test COLLECTION_1/PRODUCT_1"
+        "Skipping COLLECTION_2/PRODUCT_1 as the product name conflicts with already started test COLLECTION_1/PRODUCT_1"
     ) in caplog.text
     assert "SUCCESS\t| COLLECTION_1/PRODUCT_1" in caplog.text
     assert "Totals: 1 Succeeded; 0 Failed; 0 Pending of 1 tests (1 skipped)" in caplog.text

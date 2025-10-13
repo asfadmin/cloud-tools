@@ -29,10 +29,7 @@ def add_parser(
     )
     parser_upload.add_argument(
         "--data-version",
-        help=(
-            "Data version for this product. If not set, the product will be "
-            "uploaded without a data version."
-        ),
+        help="Data version for this product. If not set, the product will be uploaded without a data version.",
     )
     parser_upload.add_argument(
         "--product",

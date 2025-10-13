@@ -45,7 +45,7 @@ class Notifier(ABC):
             return
 
         self._current_batch.append(
-            self.create_record(record_template, entry)
+            self.create_record(record_template, entry),
         )
 
         if len(self._current_batch) == self._batch_size:

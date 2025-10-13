@@ -19,6 +19,7 @@ def test_add_tag_merge():
     }
 
     resource_list = [
+        # ruff hint
         resource
         for _, resources in resource_set.iter_by_class()
         for resource in resources

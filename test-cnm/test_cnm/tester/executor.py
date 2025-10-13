@@ -69,8 +69,7 @@ class TestRun:
         for test in self.tests.values():
             if test.name in self.pending_tests:
                 log.warning(
-                    "Skipping %s as the product name conflicts with already "
-                    "started test %s",
+                    "Skipping %s as the product name conflicts with already started test %s",
                     test.get_id(),
                     self.pending_tests[test.name].get_id(),
                 )

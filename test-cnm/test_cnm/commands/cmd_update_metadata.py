@@ -24,10 +24,7 @@ def add_parser(
     )
     parser_update_metadata.add_argument(
         "--cnm-file",
-        help=(
-            "Path to a JSON file containing one or more CNM messages to read "
-            "checksum values from"
-        ),
+        help="Path to a JSON file containing one or more CNM messages to read checksum values from",
         type=Path,
     )
     parser_update_metadata.add_argument(
@@ -97,10 +94,7 @@ def cmd_update_metadata(
             for entry in response.get("Contents", ()):
                 key = entry["Key"]
 
-                if (
-                    prefixes
-                    and not any(key.startswith(prefix) for prefix in prefixes)
-                ) or key == metadata.key:
+                if (prefixes and not any(key.startswith(prefix) for prefix in prefixes)) or key == metadata.key:
                     continue
 
                 cnm_file_obj = _find_matching_cnm_file_obj(cnm_file, key)
@@ -218,8 +212,7 @@ class ChecksumPropertyHandler(PropertyHandler):
             etag_md5sum = m.group(1)
             if etag_md5sum != new_value:
                 log.warning(
-                    "Computed checksum for s3://%s/%s did not match "
-                    "etag [computed: %s, etag: %s]",
+                    "Computed checksum for s3://%s/%s did not match etag [computed: %s, etag: %s]",
                     bucket,
                     key,
                     new_value,
@@ -248,8 +241,7 @@ class TypePropertyHandler(PropertyHandler):
             )
             if new_value not in valid_types:
                 confirm = input(
-                    f"{repr(new_value)} should be one of {repr(valid_types)}. "
-                    "Are you sure? [y/N]: ",
+                    f"{repr(new_value)} should be one of {repr(valid_types)}. Are you sure? [y/N]: ",
                 ).strip()
                 if confirm.lower() != "y":
                     continue
