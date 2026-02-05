@@ -1404,7 +1404,7 @@ class SNSSubscription(Resource):
 
         return [
             cls.from_arn(
-                Arn(entry["SubscriptionArn"]),
+                Arn(subscription_arn),
                 topic_arn,
                 entry["Protocol"],
                 entry["Endpoint"],
@@ -1412,6 +1412,7 @@ class SNSSubscription(Resource):
             for response in paginator.paginate()
             for entry in response.get("Subscriptions", ())
             if name_matcher.matches((topic_arn := Arn(entry["TopicArn"])).name)
+            if (subscription_arn := entry["SubscriptionArn"]) != "PendingConfirmation"
         ]
 
     def delete(self, get_client):
