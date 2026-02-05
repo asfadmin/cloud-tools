@@ -929,10 +929,21 @@ class ElasticsearchDomain(Resource):
 class EventSourceMapping(Resource):
     TYPE_FILTER = "lambda:event-source-mapping"
 
-    def __init__(self, id, event_source_arn, function_arn, arn=None, tags=()):
+    def __init__(
+        self,
+        id,
+        arn=None,
+        tags=(),
+        event_source_arn=None,
+        function_arn=None,
+    ):
         super().__init__(id, id, arn=arn, tags=tags)
         self.event_source_arn = event_source_arn
         self.function_arn = function_arn
+
+    @classmethod
+    def from_arn(cls, arn, tags=()):
+        return cls(arn.id, arn=arn, tags=tags)
 
     @classmethod
     def gather(cls, get_client, name_matcher):
@@ -940,18 +951,39 @@ class EventSourceMapping(Resource):
         paginator = client.get_paginator("list_event_source_mappings")
 
         return [
-            cls(entry["UUID"], Arn(entry["EventSourceArn"]), function_arn)
+            cls(
+                entry["UUID"],
+                arn=Arn(entry["EventSourceMappingArn"]),
+                event_source_arn=Arn(entry["EventSourceArn"]),
+                function_arn=function_arn,
+            )
             for response in paginator.paginate()
             for entry in response.get("EventSourceMappings", ())
             if name_matcher.matches((function_arn := Arn(entry["FunctionArn"])).name)
         ]
+
+    def load(self, get_client):
+        if self.event_source_arn and self.function_arn:
+            return
+
+        client = get_client("lambda")
+        response = client.get_event_source_mapping(UUID=self.id)
+
+        self.event_source_arn = Arn(response["EventSourceArn"])
+        self.function_arn = Arn(response["FunctionArn"])
 
     def delete(self, get_client):
         client = get_client("lambda")
         client.delete_event_source_mapping(UUID=self.id)
 
     def get_display_name(self):
-        return f"{self.event_source_arn.name} -> {self.function_arn.name}"
+        if not self.function_arn and not self.event_source_arn:
+            return self.id
+
+        event_source_name = self.event_source_arn.name if self.event_source_arn else "????"
+        function_name = self.function_arn.name if self.function_arn else "????"
+
+        return f"{event_source_name} -> {function_name}"
 
 
 class GlueDatabase(Resource):
