@@ -1614,12 +1614,14 @@ class CumulusDestroyer:
         profile,
         name_matcher,
         type_filters=(),
+        type_filters_exclude=(),
         auto_confirm=False,
         display_tags=False,
     ):
         self.session = boto3.Session(profile_name=profile)
         self.name_matcher = name_matcher
         self.type_filters = type_filters
+        self.type_filters_exclude = type_filters_exclude
         self.auto_confirm = auto_confirm
         self.display_tags = display_tags
 
@@ -1697,7 +1699,8 @@ class CumulusDestroyer:
                     cls
                     for type_name, cls in Resource.TYPES.items()
                     if hasattr(cls, "gather")
-                    if not self.type_filters or type_name in self.type_filters
+                    if (not self.type_filters and type_name not in self.type_filters_exclude)
+                    or type_name in self.type_filters
                 ),
             ]
 
@@ -1913,6 +1916,14 @@ def main(args=None):
         metavar="filter",
     )
     collection_group.add_argument(
+        "--filter-exclude",
+        help="Type of resource to exclude from the filter",
+        nargs="*",
+        default=(),
+        choices=list(Resource.TYPES),
+        metavar="filter_exclude",
+    )
+    collection_group.add_argument(
         "--collect-all",
         "-a",
         help="Enable all extra collectors",
@@ -1954,6 +1965,7 @@ def main(args=None):
             exclude=args.exclude,
         ),
         type_filters=args.filter,
+        type_filters_exclude=args.filter_exclude,
         auto_confirm=args.yes,
         display_tags=args.tags,
     )
@@ -1971,7 +1983,8 @@ def main(args=None):
         cls
         for type_name, cls in Resource.TYPES.items()
         if hasattr(cls, "gather")
-        if not destroyer.type_filters or type_name in destroyer.type_filters
+        if (not destroyer.type_filters and type_name not in destroyer.type_filters_exclude)
+        or type_name in destroyer.type_filters
     )
 
     try:
