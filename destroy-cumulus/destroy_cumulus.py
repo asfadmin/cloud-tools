@@ -145,14 +145,14 @@ class Resource:
 
         super().__init_subclass__(**kwargs)
 
-    def __init__(self, name, id, arn=None, tags=()):
+    def __init__(self, name, id, arn=None, *, tags=()):
         self.name = name
         self.id = id
         self.arn = arn
         self.tags = _tag_dict(tags)
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         return cls(arn.name, arn.id, arn=arn, tags=tags)
 
     def load(self, get_client):
@@ -853,7 +853,7 @@ class ECSService(Resource):
         self.cluster = cluster
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         # TODO(reweeden): The Arn parsing isn't quite right
         cluster = arn.name
         service = arn.id
@@ -942,7 +942,7 @@ class EventSourceMapping(Resource):
         self.function_arn = function_arn
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         return cls(arn.id, arn=arn, tags=tags)
 
     @classmethod
@@ -1022,7 +1022,7 @@ class IAMInstanceProfile(Resource):
         self.roles = roles
 
     @classmethod
-    def from_arn(cls, arn, roles=(), tags=()):
+    def from_arn(cls, arn, *, roles=(), tags=()):
         return cls(arn.name, arn.id, roles, arn=arn, tags=tags)
 
     @classmethod
@@ -1033,7 +1033,7 @@ class IAMInstanceProfile(Resource):
         return [
             cls.from_arn(
                 Arn(entry["Arn"]),
-                [role["RoleName"] for role in entry["Roles"]],
+                roles=[role["RoleName"] for role in entry["Roles"]],
                 tags=entry.get("Tags", ()),
             )
             for response in paginator.paginate()
@@ -1319,7 +1319,7 @@ class SecurityGroup(Resource):
         )
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         return cls(arn.name, arn.id, [], arn=arn, tags=tags)
 
     @classmethod
@@ -1418,7 +1418,7 @@ class SNSSubscription(Resource):
         self.endpoint = endpoint
 
     @classmethod
-    def from_arn(cls, arn, topic_arn=None, protocol=None, endpoint=None, tags=()):
+    def from_arn(cls, arn, *, topic_arn=None, protocol=None, endpoint=None, tags=()):
         return cls(
             arn.name,
             arn.id,
@@ -1437,9 +1437,9 @@ class SNSSubscription(Resource):
         return [
             cls.from_arn(
                 Arn(subscription_arn),
-                topic_arn,
-                entry["Protocol"],
-                entry["Endpoint"],
+                topic_arn=topic_arn,
+                protocol=entry["Protocol"],
+                endpoint=entry["Endpoint"],
             )
             for response in paginator.paginate()
             for entry in response.get("Subscriptions", ())
