@@ -510,7 +510,7 @@ class AthenaWorkGroup(Resource):
             # ruff hint
             cls(name, name)
             for entry in response.get("WorkGroups", ())
-            if name_matcher.matches((name := entry["Name"]))
+            if name_matcher.matches(name := entry["Name"])
         ]
 
     def delete(self, get_client):
@@ -792,7 +792,7 @@ class ECRRepository(Resource):
             cls(name, name)
             for response in paginator.paginate()
             for entry in response.get("repositories", ())
-            if name_matcher.matches((name := entry["repositoryName"]))
+            if name_matcher.matches(name := entry["repositoryName"])
         ]
 
     def delete(self, get_client):
@@ -1006,7 +1006,7 @@ class GlueDatabase(Resource):
             cls(name, entry["CatalogId"])
             for response in paginator.paginate()
             for entry in response.get("DatabaseList", ())
-            if name_matcher.matches((name := entry["Name"]))
+            if name_matcher.matches(name := entry["Name"])
         ]
 
     def delete(self, get_client):
@@ -1976,7 +1976,7 @@ def main(args=None):
         default=False,
     )
 
-    # Controling output
+    # Controlling output
     output_group = parser.add_argument_group(title="output")
     output_group.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
     output_group.add_argument("--tags", help="Display all resource tags", action="store_true")
