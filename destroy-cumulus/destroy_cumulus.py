@@ -9,6 +9,7 @@ import time
 from collections import defaultdict
 from importlib.metadata import Distribution
 from platform import python_version
+from typing import Protocol
 
 import boto3
 import botocore
@@ -58,7 +59,7 @@ prefix `some-prefix` and printing verbose output:
 # Developer notes
 #
 # Resource gathering is implemented through 'collector' objects. A collector is
-# any object with a `gather(get_client, name_matcher) -> list[Resource]` method.
+# defined through the `Collector` protocol type.
 # Most "Resource's" are currently implemented as collectors that know how to
 # find that type of resource. These type of collectors should always be finding
 # resources by name prefix, as there is already a TaggedResourceCollector that
@@ -130,6 +131,12 @@ class Arn:
 
     def __str__(self):
         return self._arn
+
+
+class Collector(Protocol):
+    @classmethod
+    def gather(cls, get_client, name_matcher, options) -> list["Resource"]:
+        pass
 
 
 class Resource:
@@ -254,7 +261,7 @@ class TaggedResourceCollector:
         self.type_filters = type_filters
         self.tag_filters = tag_filters
 
-    def gather(self, get_client, name_matcher):
+    def gather(self, get_client, name_matcher, _options):
         client = get_client("resourcegroupstaggingapi")
         tag_paginator = client.get_paginator("get_tag_values")
         paginator = client.get_paginator("get_resources")
@@ -333,7 +340,7 @@ class UnnamedIAMRoleCollector:
     def __init__(self, type_filters=()):
         self.type_filters = type_filters
 
-    def gather(self, get_client, name_matcher):
+    def gather(self, get_client, name_matcher, _options):
         if self.type_filters and "iam:role" not in self.type_filters:
             return []
 
@@ -441,7 +448,7 @@ class Activity(Resource):
     TYPE_FILTER = "states:activity"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("stepfunctions")
         paginator = client.get_paginator("list_activities")
 
@@ -463,7 +470,7 @@ class ApiGateway(Resource):
     TYPE_FILTER = "apigateway:restapis"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("apigateway")
         paginator = client.get_paginator("get_rest_apis")
 
@@ -498,7 +505,7 @@ class AthenaWorkGroup(Resource):
     TYPE_FILTER = "athena:workgroup"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         # For some reason cumulus decided to change the naming convention for
         # these resources.
         name_matcher = name_matcher.replace("-", "_")
@@ -525,7 +532,7 @@ class Bucket(Resource):
     TYPE_FILTER = "s3"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("s3")
         response = client.list_buckets()
 
@@ -581,7 +588,7 @@ class CloudFormationStack(Resource):
     TYPE_FILTER = "cloudformation:stack"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("cloudformation")
         paginator = client.get_paginator("list_stacks")
 
@@ -602,7 +609,7 @@ class CloudWatchAlarm(Resource):
     TYPE_FILTER = "cloudwatch:alarm"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("describe_alarms")
 
@@ -634,7 +641,7 @@ class CloudWatchDashboard(Resource):
     TYPE_FILTER = "cloudwatch:dashboard"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("list_dashboards")
 
@@ -663,7 +670,7 @@ class CloudWatchEventRule(Resource):
     TYPE_FILTER = "events:rule"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("events")
         rule_paginator = client.get_paginator("list_rules")
         target_paginator = client.get_paginator("list_targets_by_rule")
@@ -725,7 +732,7 @@ class CloudWatchLogGroup(Resource):
     TYPE_FILTER = "logs:log-group"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("logs")
         paginator = client.get_paginator("describe_log_groups")
 
@@ -762,7 +769,7 @@ class DynamoDBTable(Resource):
     TYPE_FILTER = "dynamodb:table"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("dynamodb")
         paginator = client.get_paginator("list_tables")
 
@@ -784,7 +791,7 @@ class ECRRepository(Resource):
     TYPE_FILTER = "ecr:repository"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ecr")
         paginator = client.get_paginator("describe_repositories")
 
@@ -814,7 +821,7 @@ class ECSCluster(Resource):
         )
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ecs")
         paginator = client.get_paginator("list_clusters")
         services_paginator = client.get_paginator("list_services")
@@ -880,7 +887,7 @@ class ECSTaskDefinition(VersionedResource):
         self.status = status
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ecs")
         paginator = client.get_paginator("list_task_definitions")
 
@@ -912,7 +919,7 @@ class ElasticsearchDomain(Resource):
     TYPE_FILTER = "es:domain"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("opensearch")
 
         return [
@@ -946,9 +953,24 @@ class EventSourceMapping(Resource):
         return cls(arn.id, arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, options):
         client = get_client("lambda")
         paginator = client.get_paginator("list_event_source_mappings")
+
+        # For large numbers of event source mappings, we see the following error
+        # An error occurred (ServiceException) when calling the
+        # ListEventSourceMappings operation (reached max retries: 4): An error
+        # occurred and the request cannot be processed.
+        #
+        # Setting `MaxItems` is able to mitigate this error, but of course it
+        # limits how many event source mappings will actually be scanned.
+        kwargs = (
+            dict(
+                PaginationConfig={"MaxItems": options["MaxItems"]},
+            )
+            if "MaxItems" in options
+            else {}
+        )
 
         return [
             cls(
@@ -957,7 +979,7 @@ class EventSourceMapping(Resource):
                 event_source_arn=Arn(entry["EventSourceArn"]),
                 function_arn=function_arn,
             )
-            for response in paginator.paginate()
+            for response in paginator.paginate(**kwargs)
             for entry in response.get("EventSourceMappings", ())
             if name_matcher.matches((function_arn := Arn(entry["FunctionArn"])).name)
         ]
@@ -994,7 +1016,7 @@ class GlueDatabase(Resource):
         self.catalog_id = catalog_id
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         # For some reason cumulus decided to change the naming convention for
         # these resources.
         name_matcher = name_matcher.replace("-", "_")
@@ -1026,7 +1048,7 @@ class IAMInstanceProfile(Resource):
         return cls(arn.name, arn.id, roles, arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("iam")
         paginator = client.get_paginator("list_instance_profiles")
 
@@ -1057,7 +1079,7 @@ class IAMPolicy(Resource):
     TYPE_FILTER = "iam:policy"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("iam")
         paginator = client.get_paginator("list_policies")
 
@@ -1101,7 +1123,7 @@ class IAMRole(Resource):
     TYPE_FILTER = "iam:role"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("iam")
         paginator = client.get_paginator("list_roles")
 
@@ -1160,7 +1182,7 @@ class LambdaFunction(Resource):
     TYPE_FILTER = "lambda:function"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("lambda")
         paginator = client.get_paginator("list_functions")
 
@@ -1180,7 +1202,7 @@ class LambdaLayerVersion(VersionedResource):
     TYPE_FILTER = "lambda:layer"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("lambda")
         layer_paginator = client.get_paginator("list_layers")
         version_paginator = client.get_paginator("list_layer_versions")
@@ -1226,7 +1248,7 @@ class RDSCluster(Resource):
     TYPE_FILTER = "rds:cluster"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_clusters")
 
@@ -1246,7 +1268,7 @@ class RDSClusterParameterGroup(Resource):
     TYPE_FILTER = "rds:cluster-pg"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_cluster_parameter_groups")
 
@@ -1270,7 +1292,7 @@ class RDSSubnetGroup(Resource):
     TYPE_FILTER = "rds:subgrp"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_subnet_groups")
 
@@ -1292,7 +1314,7 @@ class Secret(Resource):
     TYPE_FILTER = "secretsmanager:secret"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("secretsmanager")
         paginator = client.get_paginator("list_secrets")
 
@@ -1323,7 +1345,7 @@ class SecurityGroup(Resource):
         return cls(arn.name, arn.id, [], arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ec2")
         paginator = client.get_paginator("describe_security_groups")
 
@@ -1430,7 +1452,7 @@ class SNSSubscription(Resource):
         )
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("sns")
         paginator = client.get_paginator("list_subscriptions")
 
@@ -1471,7 +1493,7 @@ class SNSTopic(Resource):
     TYPE_FILTER = "sns"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("sns")
         paginator = client.get_paginator("list_topics")
 
@@ -1493,7 +1515,7 @@ class SQSQueue(Resource):
     URL_PATTERN = re.compile(r"https://.+/\d{12}/(.+)")
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("sqs")
         paginator = client.get_paginator("list_queues")
 
@@ -1521,7 +1543,7 @@ class SSMParameter(Resource):
     TYPE_FILTER = "ssm:parameter"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ssm")
         paginator = client.get_paginator("describe_parameters")
 
@@ -1543,7 +1565,7 @@ class StepFunction(Resource):
     TYPE_FILTER = "states:stateMachine"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("stepfunctions")
         paginator = client.get_paginator("list_state_machines")
 
@@ -1650,6 +1672,7 @@ class CumulusDestroyer:
         type_filters_exclude=(),
         auto_confirm=False,
         display_tags=False,
+        gather_options={},
     ):
         self.session = boto3.Session(profile_name=profile)
         self.name_matcher = name_matcher
@@ -1657,6 +1680,7 @@ class CumulusDestroyer:
         self.type_filters_exclude = type_filters_exclude
         self.auto_confirm = auto_confirm
         self.display_tags = display_tags
+        self.gather_options = gather_options
 
     @functools.lru_cache()
     def client(self, *args, **kwargs):
@@ -1761,7 +1785,11 @@ class CumulusDestroyer:
             log.info("Gathering from %s", collector.__class__.__name__)
 
         start = time.perf_counter()
-        resources = collector.gather(self.client, self.name_matcher)
+        resources = collector.gather(
+            self.client,
+            self.name_matcher,
+            dict(self.gather_options),
+        )
         end = time.perf_counter()
 
         log.debug("Gathered %d resources in %.1fs", len(resources), end - start)
@@ -1975,6 +2003,15 @@ def main(args=None):
         action=BooleanOptionalAction,
         default=False,
     )
+    collection_group.add_argument(
+        "--max-items",
+        help=(
+            "Limit the number of items returned from the AWS API for certain "
+            "resource types that support it, e.g. EventSourceMappings"
+        ),
+        type=int,
+        default=None,
+    )
 
     # Controlling output
     output_group = parser.add_argument_group(title="output")
@@ -1991,6 +2028,10 @@ def main(args=None):
     level = max(logging.INFO - args.verbose * 10, 1)
     log.setLevel(level)
 
+    gather_options = {}
+    if args.max_items:
+        gather_options["MaxItems"] = args.max_items
+
     destroyer = CumulusDestroyer(
         profile=args.profile,
         name_matcher=NameMatcher(
@@ -2001,6 +2042,7 @@ def main(args=None):
         type_filters_exclude=args.filter_exclude,
         auto_confirm=args.yes,
         display_tags=args.tags,
+        gather_options=gather_options,
     )
 
     collectors = []

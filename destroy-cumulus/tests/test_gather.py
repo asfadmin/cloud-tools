@@ -52,7 +52,7 @@ def test_gather_filter_queues(mock_queues):
 
 
 def test_gather_queues(get_client, mock_queues):
-    resources = SQSQueue.gather(get_client, NameMatcher(prefix="test"))
+    resources = SQSQueue.gather(get_client, NameMatcher(prefix="test"), {})
 
     assert len(resources) == 1
     queue = resources[0]
