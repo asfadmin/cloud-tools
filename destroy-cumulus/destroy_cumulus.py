@@ -152,7 +152,7 @@ class Resource:
 
         super().__init_subclass__(**kwargs)
 
-    def __init__(self, name, id, arn=None, *, tags=()):
+    def __init__(self, name, id, *, arn=None, tags=()):
         self.name = name
         self.id = id
         self.arn = arn
@@ -813,7 +813,7 @@ class ECRRepository(Resource):
 class ECSCluster(Resource):
     TYPE_FILTER = "ecs:cluster"
 
-    def __init__(self, name, id, services=(), arn=None, tags=()):
+    def __init__(self, name, id, *, services=(), arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.services = sorted(
             services,
@@ -855,7 +855,7 @@ class ECSCluster(Resource):
 class ECSService(Resource):
     TYPE_FILTER = "ecs:service"
 
-    def __init__(self, name, id, cluster, arn=None, tags=()):
+    def __init__(self, name, id, cluster, *, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.cluster = cluster
 
@@ -882,7 +882,7 @@ class ECSService(Resource):
 class ECSTaskDefinition(VersionedResource):
     TYPE_FILTER = "ecs:task-definition"
 
-    def __init__(self, name, id, status=None, arn=None, tags=()):
+    def __init__(self, name, id, *, status=None, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.status = status
 
@@ -939,6 +939,7 @@ class EventSourceMapping(Resource):
     def __init__(
         self,
         id,
+        *,
         arn=None,
         tags=(),
         event_source_arn=None,
@@ -1011,7 +1012,7 @@ class EventSourceMapping(Resource):
 class GlueDatabase(Resource):
     TYPE_FILTER = "glue:database"
 
-    def __init__(self, name, catalog_id, arn=None, tags=()):
+    def __init__(self, name, catalog_id, *, arn=None, tags=()):
         super().__init__(name, name, arn=arn, tags=tags)
         self.catalog_id = catalog_id
 
@@ -1039,13 +1040,13 @@ class GlueDatabase(Resource):
 class IAMInstanceProfile(Resource):
     TYPE_FILTER = "iam:instanceprofile"
 
-    def __init__(self, name, id, roles=(), arn=None, tags=()):
+    def __init__(self, name, id, *, roles=(), arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.roles = roles
 
     @classmethod
     def from_arn(cls, arn, *, roles=(), tags=()):
-        return cls(arn.name, arn.id, roles, arn=arn, tags=tags)
+        return cls(arn.name, arn.id, roles=roles, arn=arn, tags=tags)
 
     @classmethod
     def gather(cls, get_client, name_matcher, _options):
@@ -1227,7 +1228,7 @@ class LambdaLayerVersion(VersionedResource):
 class NetworkInterface(Resource):
     TYPE_FILTER = "ec2:network-interface"
 
-    def __init__(self, name, id, status, arn=None, tags=()):
+    def __init__(self, name, id, status, *, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.status = status
 
@@ -1333,7 +1334,7 @@ class Secret(Resource):
 class SecurityGroup(Resource):
     TYPE_FILTER = "ec2:security-group"
 
-    def __init__(self, name, id, network_interfaces, arn=None, tags=()):
+    def __init__(self, name, id, network_interfaces, *, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.network_interfaces = sorted(
             network_interfaces,
@@ -1428,6 +1429,7 @@ class SNSSubscription(Resource):
         self,
         name,
         id,
+        *,
         topic_arn=None,
         protocol=None,
         endpoint=None,
