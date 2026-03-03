@@ -84,3 +84,44 @@ same project.
 If no environment is specified the `default` environment will be used. If a
 config value is missing for the currently specified environment, the value will
 be pulled from the entry in the `[default]` section of the config instead.
+
+## Adding New Data to the Bucket
+
+- Get the Granule S3 Path
+  - For example, with **`granule_name`**=[OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z](https://cumulus-dashboard.asf.earthdatacloud.nasa.gov/granules/granule/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z), scroll down to the columns.
+  - Combine the `link` with the `bucket`, and it's s3 path is: `s3://<bucket>/<link>`, but you'll remove the last part of the link.
+    - i.e: **`input_granule`**=`s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1_V1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/`
+- Figure out the tcnm bucket/prefix to store it
+  - In the same cumulus-dashboard link, copy the `Collection` value. That'll be the `collection/version` prefix. For example, `OPERA_L3_DISP-S1_V1/1` for this link (but remove any spaces).
+  - **`tcnm_bucket`**=`s3://asf-cumulus-dev-e2e-tests/OPERA_L3_DISP-S1_V1/1/`
+- Upload the data with:
+  - `aws s3 cp --recursive <input_granule> <tcnm_bucket>/<granule_name>/`
+  - i.e:
+
+    ```bash
+    aws s3 cp --recursive \
+    s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1_V1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/ \
+    s3://asf-cumulus-dev-e2e-tests/OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/
+    ```
+
+  - You'll notice the `*.cmr.json` file won't copy over, that's expected.
+  - Now do the same for the browse bucket. In the columns in the dasboard, one is the browse bucket. (The only thing that changes in the above command is the input bucket. In this case, to `asf-cumulus-prod-opera-browse`):
+
+    ```bash
+    aws s3 cp --recursive \
+    s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1_V1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/ \
+    s3://asf-cumulus-dev-e2e-tests/OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/
+    ```
+
+  - If you synced over any `*.zarr.json.gz` files, delete them.
+
+- If you uploaded through the console directly, or deleted any files from the upload: run `tcnm tidy`. (It doesn't hurt to just run it either).
+- Finally, `tcnm update-metadata <collection_name>`
+  - ESPECIALLY if you do this with larger collections, run this in CloudShell. It needs to download each file to md5sum it, so locally can take forever.
+  - **Note**: `tcnm update-metadata OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/` works to *just* update the above.
+
+
+## Removing Data from the Bucket
+
+- Delete whatever from `s3://asf-cumulus-dev-e2e-tests`
+- Run `tcnm tidy`
