@@ -104,7 +104,6 @@ be pulled from the entry in the `[default]` section of the config instead.
     s3://asf-cumulus-dev-e2e-tests/OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/
     ```
 
-  - You'll notice the `*.cmr.json` file won't copy over, that's expected.
   - Now do the same for the browse bucket. In the columns in the dashboard, one is the browse bucket. (The only thing that changes in the above command is the input bucket. In this case, to `asf-cumulus-prod-opera-browse`):
 
     ```bash
@@ -113,15 +112,17 @@ be pulled from the entry in the `[default]` section of the config instead.
     s3://asf-cumulus-dev-e2e-tests/OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/
     ```
 
-  - If you synced over any `*.zarr.json.gz` files, delete them.
+  - Check the bucket you synced everything to.
+    - If you synced over any `*.zarr.json.gz` files, **delete** them. Sometimes there's browse and other files not sent by the provider, that we have to remove too.
+    - You'll notice the `*.cmr.json` file won't copy over from the original bucket, **that's expected / desired**.
 
 - If you uploaded through the console directly, or deleted any files from the upload: run `tcnm tidy`. (It doesn't hurt to just run it either).
 - Finally, `tcnm update-metadata <collection_name>`
-  - ESPECIALLY if you do this with larger collections, run this in CloudShell. It needs to download each file to md5sum it, so locally can take forever.
+  - ESPECIALLY if you do this with larger volume collections, run this in AWS CloudShell. It needs to download each file to md5sum it, so locally can take forever.
   - **Note**: `tcnm update-metadata OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/` works to *just* update the above.
 
 
 ## Removing Data from the Bucket
 
-- Delete whatever from `s3://asf-cumulus-dev-e2e-tests`
+- Delete whatever from the testing bucket that's defined in `testcnm.cfg`.
 - Run `tcnm tidy`
