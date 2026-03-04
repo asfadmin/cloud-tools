@@ -119,6 +119,7 @@ be pulled from the entry in the `[default]` section of the config instead.
 - If you uploaded through the console directly, or deleted any files from the upload: run `tcnm tidy`. (It doesn't hurt to just run it either).
 - Finally, `tcnm update-metadata <collection_name>`
   - ESPECIALLY if you do this with larger volume collections, run this in AWS CloudShell. It needs to download each file to md5sum it, so locally can take forever.
+  - If you already know the md5sum, you can add `--interactive` to the command so it'll ask you instead of downloading the file.
   - **Note**: `tcnm update-metadata OPERA_L3_DISP-S1_V1/1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/` works to *just* update the above.
 
 
