@@ -105,7 +105,7 @@ be pulled from the entry in the `[default]` section of the config instead.
     ```
 
   - You'll notice the `*.cmr.json` file won't copy over, that's expected.
-  - Now do the same for the browse bucket. In the columns in the dasboard, one is the browse bucket. (The only thing that changes in the above command is the input bucket. In this case, to `asf-cumulus-prod-opera-browse`):
+  - Now do the same for the browse bucket. In the columns in the dashboard, one is the browse bucket. (The only thing that changes in the above command is the input bucket. In this case, to `asf-cumulus-prod-opera-browse`):
 
     ```bash
     aws s3 cp --recursive \
