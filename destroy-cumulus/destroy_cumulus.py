@@ -9,6 +9,7 @@ import time
 from collections import defaultdict
 from importlib.metadata import Distribution
 from platform import python_version
+from typing import Protocol
 
 import boto3
 import botocore
@@ -58,7 +59,7 @@ prefix `some-prefix` and printing verbose output:
 # Developer notes
 #
 # Resource gathering is implemented through 'collector' objects. A collector is
-# any object with a `gather(get_client, name_matcher) -> list[Resource]` method.
+# defined through the `Collector` protocol type.
 # Most "Resource's" are currently implemented as collectors that know how to
 # find that type of resource. These type of collectors should always be finding
 # resources by name prefix, as there is already a TaggedResourceCollector that
@@ -132,6 +133,12 @@ class Arn:
         return self._arn
 
 
+class Collector(Protocol):
+    @classmethod
+    def gather(cls, get_client, name_matcher, options) -> list["Resource"]:
+        pass
+
+
 class Resource:
     TYPE_FILTER = object()
     TYPES = {}
@@ -145,14 +152,14 @@ class Resource:
 
         super().__init_subclass__(**kwargs)
 
-    def __init__(self, name, id, arn=None, tags=()):
+    def __init__(self, name, id, *, arn=None, tags=()):
         self.name = name
         self.id = id
         self.arn = arn
         self.tags = _tag_dict(tags)
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         return cls(arn.name, arn.id, arn=arn, tags=tags)
 
     def load(self, get_client):
@@ -254,7 +261,7 @@ class TaggedResourceCollector:
         self.type_filters = type_filters
         self.tag_filters = tag_filters
 
-    def gather(self, get_client, name_matcher):
+    def gather(self, get_client, name_matcher, _options):
         client = get_client("resourcegroupstaggingapi")
         tag_paginator = client.get_paginator("get_tag_values")
         paginator = client.get_paginator("get_resources")
@@ -333,7 +340,7 @@ class UnnamedIAMRoleCollector:
     def __init__(self, type_filters=()):
         self.type_filters = type_filters
 
-    def gather(self, get_client, name_matcher):
+    def gather(self, get_client, name_matcher, _options):
         if self.type_filters and "iam:role" not in self.type_filters:
             return []
 
@@ -441,7 +448,7 @@ class Activity(Resource):
     TYPE_FILTER = "states:activity"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("stepfunctions")
         paginator = client.get_paginator("list_activities")
 
@@ -463,7 +470,7 @@ class ApiGateway(Resource):
     TYPE_FILTER = "apigateway:restapis"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("apigateway")
         paginator = client.get_paginator("get_rest_apis")
 
@@ -498,7 +505,7 @@ class AthenaWorkGroup(Resource):
     TYPE_FILTER = "athena:workgroup"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         # For some reason cumulus decided to change the naming convention for
         # these resources.
         name_matcher = name_matcher.replace("-", "_")
@@ -510,7 +517,7 @@ class AthenaWorkGroup(Resource):
             # ruff hint
             cls(name, name)
             for entry in response.get("WorkGroups", ())
-            if name_matcher.matches((name := entry["Name"]))
+            if name_matcher.matches(name := entry["Name"])
         ]
 
     def delete(self, get_client):
@@ -525,7 +532,7 @@ class Bucket(Resource):
     TYPE_FILTER = "s3"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("s3")
         response = client.list_buckets()
 
@@ -581,7 +588,7 @@ class CloudFormationStack(Resource):
     TYPE_FILTER = "cloudformation:stack"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("cloudformation")
         paginator = client.get_paginator("list_stacks")
 
@@ -602,7 +609,7 @@ class CloudWatchAlarm(Resource):
     TYPE_FILTER = "cloudwatch:alarm"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("describe_alarms")
 
@@ -634,7 +641,7 @@ class CloudWatchDashboard(Resource):
     TYPE_FILTER = "cloudwatch:dashboard"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("cloudwatch")
         paginator = client.get_paginator("list_dashboards")
 
@@ -663,7 +670,7 @@ class CloudWatchEventRule(Resource):
     TYPE_FILTER = "events:rule"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("events")
         rule_paginator = client.get_paginator("list_rules")
         target_paginator = client.get_paginator("list_targets_by_rule")
@@ -725,7 +732,7 @@ class CloudWatchLogGroup(Resource):
     TYPE_FILTER = "logs:log-group"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("logs")
         paginator = client.get_paginator("describe_log_groups")
 
@@ -762,7 +769,7 @@ class DynamoDBTable(Resource):
     TYPE_FILTER = "dynamodb:table"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("dynamodb")
         paginator = client.get_paginator("list_tables")
 
@@ -784,7 +791,7 @@ class ECRRepository(Resource):
     TYPE_FILTER = "ecr:repository"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ecr")
         paginator = client.get_paginator("describe_repositories")
 
@@ -792,7 +799,7 @@ class ECRRepository(Resource):
             cls(name, name)
             for response in paginator.paginate()
             for entry in response.get("repositories", ())
-            if name_matcher.matches((name := entry["repositoryName"]))
+            if name_matcher.matches(name := entry["repositoryName"])
         ]
 
     def delete(self, get_client):
@@ -806,7 +813,7 @@ class ECRRepository(Resource):
 class ECSCluster(Resource):
     TYPE_FILTER = "ecs:cluster"
 
-    def __init__(self, name, id, services=(), arn=None, tags=()):
+    def __init__(self, name, id, *, services=(), arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.services = sorted(
             services,
@@ -814,7 +821,7 @@ class ECSCluster(Resource):
         )
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ecs")
         paginator = client.get_paginator("list_clusters")
         services_paginator = client.get_paginator("list_services")
@@ -848,12 +855,12 @@ class ECSCluster(Resource):
 class ECSService(Resource):
     TYPE_FILTER = "ecs:service"
 
-    def __init__(self, name, id, cluster, arn=None, tags=()):
+    def __init__(self, name, id, cluster, *, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.cluster = cluster
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         # TODO(reweeden): The Arn parsing isn't quite right
         cluster = arn.name
         service = arn.id
@@ -875,12 +882,12 @@ class ECSService(Resource):
 class ECSTaskDefinition(VersionedResource):
     TYPE_FILTER = "ecs:task-definition"
 
-    def __init__(self, name, id, status=None, arn=None, tags=()):
+    def __init__(self, name, id, *, status=None, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.status = status
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ecs")
         paginator = client.get_paginator("list_task_definitions")
 
@@ -912,7 +919,7 @@ class ElasticsearchDomain(Resource):
     TYPE_FILTER = "es:domain"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("opensearch")
 
         return [
@@ -929,40 +936,88 @@ class ElasticsearchDomain(Resource):
 class EventSourceMapping(Resource):
     TYPE_FILTER = "lambda:event-source-mapping"
 
-    def __init__(self, id, event_source_arn, function_arn, arn=None, tags=()):
+    def __init__(
+        self,
+        id,
+        *,
+        arn=None,
+        tags=(),
+        event_source_arn=None,
+        function_arn=None,
+    ):
         super().__init__(id, id, arn=arn, tags=tags)
         self.event_source_arn = event_source_arn
         self.function_arn = function_arn
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def from_arn(cls, arn, *, tags=()):
+        return cls(arn.id, arn=arn, tags=tags)
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, options):
         client = get_client("lambda")
         paginator = client.get_paginator("list_event_source_mappings")
 
+        # For large numbers of event source mappings, we see the following error
+        # An error occurred (ServiceException) when calling the
+        # ListEventSourceMappings operation (reached max retries: 4): An error
+        # occurred and the request cannot be processed.
+        #
+        # Setting `MaxItems` is able to mitigate this error, but of course it
+        # limits how many event source mappings will actually be scanned.
+        kwargs = (
+            dict(
+                PaginationConfig={"MaxItems": options["MaxItems"]},
+            )
+            if "MaxItems" in options
+            else {}
+        )
+
         return [
-            cls(entry["UUID"], Arn(entry["EventSourceArn"]), function_arn)
-            for response in paginator.paginate()
+            cls(
+                entry["UUID"],
+                arn=Arn(entry["EventSourceMappingArn"]),
+                event_source_arn=Arn(entry["EventSourceArn"]),
+                function_arn=function_arn,
+            )
+            for response in paginator.paginate(**kwargs)
             for entry in response.get("EventSourceMappings", ())
             if name_matcher.matches((function_arn := Arn(entry["FunctionArn"])).name)
         ]
+
+    def load(self, get_client):
+        if self.event_source_arn and self.function_arn:
+            return
+
+        client = get_client("lambda")
+        response = client.get_event_source_mapping(UUID=self.id)
+
+        self.event_source_arn = Arn(response["EventSourceArn"])
+        self.function_arn = Arn(response["FunctionArn"])
 
     def delete(self, get_client):
         client = get_client("lambda")
         client.delete_event_source_mapping(UUID=self.id)
 
     def get_display_name(self):
-        return f"{self.event_source_arn.name} -> {self.function_arn.name}"
+        if not self.function_arn and not self.event_source_arn:
+            return self.id
+
+        event_source_name = self.event_source_arn.name if self.event_source_arn else "????"
+        function_name = self.function_arn.name if self.function_arn else "????"
+
+        return f"{event_source_name} -> {function_name}"
 
 
 class GlueDatabase(Resource):
     TYPE_FILTER = "glue:database"
 
-    def __init__(self, name, catalog_id, arn=None, tags=()):
+    def __init__(self, name, catalog_id, *, arn=None, tags=()):
         super().__init__(name, name, arn=arn, tags=tags)
         self.catalog_id = catalog_id
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         # For some reason cumulus decided to change the naming convention for
         # these resources.
         name_matcher = name_matcher.replace("-", "_")
@@ -974,7 +1029,7 @@ class GlueDatabase(Resource):
             cls(name, entry["CatalogId"])
             for response in paginator.paginate()
             for entry in response.get("DatabaseList", ())
-            if name_matcher.matches((name := entry["Name"]))
+            if name_matcher.matches(name := entry["Name"])
         ]
 
     def delete(self, get_client):
@@ -985,23 +1040,23 @@ class GlueDatabase(Resource):
 class IAMInstanceProfile(Resource):
     TYPE_FILTER = "iam:instanceprofile"
 
-    def __init__(self, name, id, roles=(), arn=None, tags=()):
+    def __init__(self, name, id, *, roles=(), arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.roles = roles
 
     @classmethod
-    def from_arn(cls, arn, roles=(), tags=()):
-        return cls(arn.name, arn.id, roles, arn=arn, tags=tags)
+    def from_arn(cls, arn, *, roles=(), tags=()):
+        return cls(arn.name, arn.id, roles=roles, arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("iam")
         paginator = client.get_paginator("list_instance_profiles")
 
         return [
             cls.from_arn(
                 Arn(entry["Arn"]),
-                [role["RoleName"] for role in entry["Roles"]],
+                roles=[role["RoleName"] for role in entry["Roles"]],
                 tags=entry.get("Tags", ()),
             )
             for response in paginator.paginate()
@@ -1025,7 +1080,7 @@ class IAMPolicy(Resource):
     TYPE_FILTER = "iam:policy"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("iam")
         paginator = client.get_paginator("list_policies")
 
@@ -1069,7 +1124,7 @@ class IAMRole(Resource):
     TYPE_FILTER = "iam:role"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("iam")
         paginator = client.get_paginator("list_roles")
 
@@ -1128,7 +1183,7 @@ class LambdaFunction(Resource):
     TYPE_FILTER = "lambda:function"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("lambda")
         paginator = client.get_paginator("list_functions")
 
@@ -1148,7 +1203,7 @@ class LambdaLayerVersion(VersionedResource):
     TYPE_FILTER = "lambda:layer"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("lambda")
         layer_paginator = client.get_paginator("list_layers")
         version_paginator = client.get_paginator("list_layer_versions")
@@ -1173,7 +1228,7 @@ class LambdaLayerVersion(VersionedResource):
 class NetworkInterface(Resource):
     TYPE_FILTER = "ec2:network-interface"
 
-    def __init__(self, name, id, status, arn=None, tags=()):
+    def __init__(self, name, id, status, *, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.status = status
 
@@ -1194,7 +1249,7 @@ class RDSCluster(Resource):
     TYPE_FILTER = "rds:cluster"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_clusters")
 
@@ -1214,7 +1269,7 @@ class RDSClusterParameterGroup(Resource):
     TYPE_FILTER = "rds:cluster-pg"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_cluster_parameter_groups")
 
@@ -1238,7 +1293,7 @@ class RDSSubnetGroup(Resource):
     TYPE_FILTER = "rds:subgrp"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_subnet_groups")
 
@@ -1260,7 +1315,7 @@ class Secret(Resource):
     TYPE_FILTER = "secretsmanager:secret"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("secretsmanager")
         paginator = client.get_paginator("list_secrets")
 
@@ -1279,7 +1334,7 @@ class Secret(Resource):
 class SecurityGroup(Resource):
     TYPE_FILTER = "ec2:security-group"
 
-    def __init__(self, name, id, network_interfaces, arn=None, tags=()):
+    def __init__(self, name, id, network_interfaces, *, arn=None, tags=()):
         super().__init__(name, id, arn=arn, tags=tags)
         self.network_interfaces = sorted(
             network_interfaces,
@@ -1287,11 +1342,11 @@ class SecurityGroup(Resource):
         )
 
     @classmethod
-    def from_arn(cls, arn, tags=()):
+    def from_arn(cls, arn, *, tags=()):
         return cls(arn.name, arn.id, [], arn=arn, tags=tags)
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ec2")
         paginator = client.get_paginator("describe_security_groups")
 
@@ -1374,6 +1429,7 @@ class SNSSubscription(Resource):
         self,
         name,
         id,
+        *,
         topic_arn=None,
         protocol=None,
         endpoint=None,
@@ -1386,7 +1442,7 @@ class SNSSubscription(Resource):
         self.endpoint = endpoint
 
     @classmethod
-    def from_arn(cls, arn, topic_arn=None, protocol=None, endpoint=None, tags=()):
+    def from_arn(cls, arn, *, topic_arn=None, protocol=None, endpoint=None, tags=()):
         return cls(
             arn.name,
             arn.id,
@@ -1398,20 +1454,21 @@ class SNSSubscription(Resource):
         )
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("sns")
         paginator = client.get_paginator("list_subscriptions")
 
         return [
             cls.from_arn(
-                Arn(entry["SubscriptionArn"]),
-                topic_arn,
-                entry["Protocol"],
-                entry["Endpoint"],
+                Arn(subscription_arn),
+                topic_arn=topic_arn,
+                protocol=entry["Protocol"],
+                endpoint=entry["Endpoint"],
             )
             for response in paginator.paginate()
             for entry in response.get("Subscriptions", ())
             if name_matcher.matches((topic_arn := Arn(entry["TopicArn"])).name)
+            if (subscription_arn := entry["SubscriptionArn"]) != "PendingConfirmation"
         ]
 
     def delete(self, get_client):
@@ -1438,7 +1495,7 @@ class SNSTopic(Resource):
     TYPE_FILTER = "sns"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("sns")
         paginator = client.get_paginator("list_topics")
 
@@ -1460,7 +1517,7 @@ class SQSQueue(Resource):
     URL_PATTERN = re.compile(r"https://.+/\d{12}/(.+)")
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("sqs")
         paginator = client.get_paginator("list_queues")
 
@@ -1488,7 +1545,7 @@ class SSMParameter(Resource):
     TYPE_FILTER = "ssm:parameter"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("ssm")
         paginator = client.get_paginator("describe_parameters")
 
@@ -1510,7 +1567,7 @@ class StepFunction(Resource):
     TYPE_FILTER = "states:stateMachine"
 
     @classmethod
-    def gather(cls, get_client, name_matcher):
+    def gather(cls, get_client, name_matcher, _options):
         client = get_client("stepfunctions")
         paginator = client.get_paginator("list_state_machines")
 
@@ -1614,14 +1671,18 @@ class CumulusDestroyer:
         profile,
         name_matcher,
         type_filters=(),
+        type_filters_exclude=(),
         auto_confirm=False,
         display_tags=False,
+        gather_options={},
     ):
         self.session = boto3.Session(profile_name=profile)
         self.name_matcher = name_matcher
         self.type_filters = type_filters
+        self.type_filters_exclude = type_filters_exclude
         self.auto_confirm = auto_confirm
         self.display_tags = display_tags
+        self.gather_options = gather_options
 
     @functools.lru_cache()
     def client(self, *args, **kwargs):
@@ -1697,7 +1758,8 @@ class CumulusDestroyer:
                     cls
                     for type_name, cls in Resource.TYPES.items()
                     if hasattr(cls, "gather")
-                    if not self.type_filters or type_name in self.type_filters
+                    if (not self.type_filters and type_name not in self.type_filters_exclude)
+                    or type_name in self.type_filters
                 ),
             ]
 
@@ -1725,7 +1787,11 @@ class CumulusDestroyer:
             log.info("Gathering from %s", collector.__class__.__name__)
 
         start = time.perf_counter()
-        resources = collector.gather(self.client, self.name_matcher)
+        resources = collector.gather(
+            self.client,
+            self.name_matcher,
+            dict(self.gather_options),
+        )
         end = time.perf_counter()
 
         log.debug("Gathered %d resources in %.1fs", len(resources), end - start)
@@ -1913,6 +1979,14 @@ def main(args=None):
         metavar="filter",
     )
     collection_group.add_argument(
+        "--filter-exclude",
+        help="Type of resource to exclude from the filter",
+        nargs="*",
+        default=(),
+        choices=list(Resource.TYPES),
+        metavar="filter_exclude",
+    )
+    collection_group.add_argument(
         "--collect-all",
         "-a",
         help="Enable all extra collectors",
@@ -1931,8 +2005,17 @@ def main(args=None):
         action=BooleanOptionalAction,
         default=False,
     )
+    collection_group.add_argument(
+        "--max-items",
+        help=(
+            "Limit the number of items returned from the AWS API for certain "
+            "resource types that support it, e.g. EventSourceMappings"
+        ),
+        type=int,
+        default=None,
+    )
 
-    # Controling output
+    # Controlling output
     output_group = parser.add_argument_group(title="output")
     output_group.add_argument("--verbose", "-v", help="Verbosity level", action="count", default=0)
     output_group.add_argument("--tags", help="Display all resource tags", action="store_true")
@@ -1947,6 +2030,10 @@ def main(args=None):
     level = max(logging.INFO - args.verbose * 10, 1)
     log.setLevel(level)
 
+    gather_options = {}
+    if args.max_items:
+        gather_options["MaxItems"] = args.max_items
+
     destroyer = CumulusDestroyer(
         profile=args.profile,
         name_matcher=NameMatcher(
@@ -1954,8 +2041,10 @@ def main(args=None):
             exclude=args.exclude,
         ),
         type_filters=args.filter,
+        type_filters_exclude=args.filter_exclude,
         auto_confirm=args.yes,
         display_tags=args.tags,
+        gather_options=gather_options,
     )
 
     collectors = []
@@ -1971,7 +2060,8 @@ def main(args=None):
         cls
         for type_name, cls in Resource.TYPES.items()
         if hasattr(cls, "gather")
-        if not destroyer.type_filters or type_name in destroyer.type_filters
+        if (not destroyer.type_filters and type_name not in destroyer.type_filters_exclude)
+        or type_name in destroyer.type_filters
     )
 
     try:
