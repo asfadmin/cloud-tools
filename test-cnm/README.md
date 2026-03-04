@@ -89,7 +89,7 @@ be pulled from the entry in the `[default]` section of the config instead.
 
 - Get the Granule S3 Path
   - For example, with **`granule_name`**=[OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z](https://cumulus-dashboard.asf.earthdatacloud.nasa.gov/granules/granule/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z), scroll down to the columns.
-  - Combine the `link` with the `bucket`, and it's s3 path is: `s3://<bucket>/<link>`, but you'll remove the last part of the link.
+  - Combine the `link` with the `bucket`, and its s3 path is: `s3://<bucket>/<link>`, but you'll remove the last part of the link.
     - i.e: **`input_granule`**=`s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1_V1/OPERA_L3_DISP-S1_IW_F21517_VV_20170516T055331Z_20170528T055332Z_v1.0_20260225T005629Z/`
 - Figure out the tcnm bucket/prefix to store it
   - In the same cumulus-dashboard link, copy the `Collection` value. That'll be the `collection/version` prefix. For example, `OPERA_L3_DISP-S1_V1/1` for this link (but remove any spaces).
