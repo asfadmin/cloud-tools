@@ -59,8 +59,7 @@ def cmd_list(
     for collection, grouped_tests in tests_by_collection.items():
         log.info("%s:", collection)
         for test in grouped_tests:
-            prefix = f"{collection}/"
-            test_id = test.get_id().removeprefix(prefix)
+            test_id = test.get_id()
             log.info("  - %s (%d files)", test_id, len(test.files))
             if args.files:
                 last_idx = len(test.files) - 1
