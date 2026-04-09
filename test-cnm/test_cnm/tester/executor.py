@@ -2,8 +2,9 @@ import json
 import logging
 from collections.abc import Generator
 
-from test_cnm.tester.collector import TestCollector, TestInfo
+from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.ingest_client import CnmIngestClient
+from test_cnm.tester.types import ExecutableTest, TestCollector
 
 log = logging.getLogger(__name__)
 
@@ -11,13 +12,19 @@ log = logging.getLogger(__name__)
 class TestExecutor:
     def __init__(
         self,
+        session,
         collector: TestCollector,
-        ingest_client: CnmIngestClient,
+        make_cnm_s: CnmSGenerator,
         default_data_version: str,
+        default_cnm_ingest_queue: str,
+        default_cnm_response_queue: str,
     ):
+        self.session = session
         self.collector = collector
-        self.ingest_client = ingest_client
+        self.make_cnm_s = make_cnm_s
         self.default_data_version = default_data_version
+        self.default_cnm_ingest_queue = default_cnm_ingest_queue
+        self.default_cnm_response_queue = default_cnm_response_queue
 
     def new_test_run(self, filters: list[str]) -> "TestRun":
         return TestRun(self, filters)
@@ -31,8 +38,14 @@ class TestRun:
         self.executor = executor
         self.filters = filters
 
-        self.tests = {}
+        self.ingest_clients: dict[str, CnmIngestClient] = {}
+        self.tests: list[ExecutableTest] = []
         self.pending_tests = {}
+        # For deduplicating based on name. This is no longer strictly required
+        # but may be desirable for now as it was the existing behavior. Cumulus
+        # has also since pushed out an update to allow repeated granule ids
+        # across multiple collections.
+        self.pending_tests_by_name = {}
 
         # Stats
         self.num_skipped = 0
@@ -46,6 +59,36 @@ class TestRun:
     def num_completed(self) -> int:
         return self.num_succeeded + self.num_failed
 
+    def _get_ingest_client(self, test: ExecutableTest) -> CnmIngestClient:
+        key = test.cnm_response_queue
+
+        if key not in self.ingest_clients:
+            self.ingest_clients[key] = CnmIngestClient(
+                session=self.executor.session,
+                make_cnm_s=self.executor.make_cnm_s,
+                cnm_response_queue=test.cnm_response_queue,
+            )
+
+        return self.ingest_clients[key]
+
+    def _iter_ingest_client_responses(self) -> Generator[dict]:
+        while True:
+            clients_waiting = [
+                # ruff hint
+                client
+                for client in self.ingest_clients.values()
+                if client.is_waiting
+            ]
+
+            if not clients_waiting:
+                return
+
+            # Short poll first
+            for ingest_client in clients_waiting[1:]:
+                yield from ingest_client.process_messages()
+
+            yield from clients_waiting[0].process_messages(wait_time_seconds=5)
+
     def run(self):
         self.collect_tests()
         for _ in self.iter_start_tests():
@@ -57,44 +100,54 @@ class TestRun:
     def collect_tests(self):
         assert self._state == "not_started", "Tests must be collected only once"
 
-        # Collect
-        self.tests = self.executor.collector.collect_tests(self.filters)
+        # TODO: Resolve per-test ingest queue config somehow
+        self.tests = [
+            ExecutableTest(
+                collection=test.collection,
+                data_version=test.data_version,
+                resolved_data_version=test.data_version or self.executor.default_data_version,
+                name=test.name,
+                files=test.files,
+                cnm_ingest_queue=self.executor.default_cnm_ingest_queue,
+                cnm_response_queue=self.executor.default_cnm_response_queue,
+            )
+            for test in self.executor.collector.collect_tests(self.filters).values()
+        ]
 
         self._state = "tests_collected"
 
-    def iter_start_tests(self) -> Generator[TestInfo]:
+    def iter_start_tests(self) -> Generator[ExecutableTest]:
         assert self._state == "tests_collected", "Tests must be collected first"
 
         self.pending_tests.clear()
-        for test in self.tests.values():
-            if test.name in self.pending_tests:
+        self.pending_tests_by_name.clear()
+        for test in self.tests:
+            if test.name in self.pending_tests_by_name:
                 log.warning(
                     "Skipping %s as the product name conflicts with already started test %s",
                     test.get_id(),
-                    self.pending_tests[test.name].get_id(),
+                    self.pending_tests_by_name[test.name].get_id(),
                 )
                 self.num_skipped += 1
                 continue
 
             log.info("Starting: %s", test.get_id())
-            test.cnm_s = self.executor.ingest_client.submit_request(
-                test.collection,
-                test.data_version or self.executor.default_data_version,
-                test.name,
-                test.files,
-            )
+            test.cnm_s = self._get_ingest_client(test).submit_request(test)
             self.num_started += 1
-            self.pending_tests[test.name] = test
+            key = (test.cnm_s["identifier"], test.cnm_s["submissionTime"])
+            self.pending_tests[key] = test
+            self.pending_tests_by_name[test.name] = test
 
             yield test
 
         self._state = "tests_started"
 
-    def iter_responses(self) -> Generator[tuple[TestInfo, dict]]:
+    def iter_responses(self) -> Generator[tuple[ExecutableTest, dict]]:
         assert self._state == "tests_started", "Tests must be started first"
 
-        for name, cnm_r in self.executor.ingest_client.iter_responses():
-            test = self.pending_tests.pop(name)
+        for cnm_r in self._iter_ingest_client_responses():
+            key = (cnm_r["identifier"], cnm_r["submissionTime"])
+            test = self.pending_tests.pop(key)
             response = cnm_r.get("response", {})
             status = response.get("status")
 

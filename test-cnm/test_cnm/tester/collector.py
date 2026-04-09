@@ -2,44 +2,15 @@ import fnmatch
 import logging
 import re
 from collections import defaultdict
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Protocol, TypedDict
+from typing import Optional
 
 import boto3
+from test_cnm.tester.types import FileDict, TestInfo
 
 log = logging.getLogger(__name__)
 
 DATA_VERSION_PATTERN = re.compile(r"^\d+\.\d+|\d$")
-
-
-class FileDict(TypedDict):
-    Bucket: str
-    Key: str
-    Size: int
-    ETag: str
-
-
-@dataclass
-class TestInfo:
-    collection: str
-    data_version: Optional[str]
-    name: str
-    files: list[FileDict]
-    cnm_s: Optional[dict] = None
-
-    def get_id(self) -> str:
-        if self.data_version:
-            return self.get_full_id(self.data_version)
-
-        return f"{self.collection}/{self.name}"
-
-    def get_full_id(self, default_data_version: str) -> str:
-        return f"{self.collection}/{self.data_version or default_data_version}/{self.name}"
-
-
-class TestCollector(Protocol):
-    def collect_tests(self, filters: list[str]) -> dict[str, TestInfo]: ...
 
 
 class BucketTestCollector:
@@ -64,7 +35,7 @@ class BucketTestCollector:
                 collection = path.parts[0]
                 data_version = path.parts[1] if DATA_VERSION_PATTERN.fullmatch(path.parts[1]) else None
                 name = path.parts[-2]
-                s3_entries[(collection, data_version, name)].append(
+                s3_entries[collection, data_version, name].append(
                     {
                         "Bucket": response["Name"],
                         "Key": key,

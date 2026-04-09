@@ -26,18 +26,56 @@ def aws_credentials():
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 
-@pytest.fixture(scope="session")
-def get_client():
-    return boto3.client
+@pytest.fixture
+def boto_session():
+    with mock_aws():
+        yield boto3.Session()
 
 
 @pytest.fixture
-def s3_resource():
-    with mock_aws():
-        yield boto3.resource("s3")
+def s3_resource(boto_session):
+    return boto_session.resource("s3")
 
 
 @pytest.fixture
-def sqs_client():
-    with mock_aws():
-        yield boto3.client("sqs")
+def sqs_client(boto_session):
+    return boto_session.client("sqs")
+
+
+@pytest.fixture
+def mock_make_cnm_s():
+    uid = 0
+
+    def mock_make_cnm_s(
+        collection: str,
+        data_version: str,
+        name: str,
+        files: list,
+    ) -> dict:
+        nonlocal uid
+        uid += 1
+
+        return {
+            "identifier": str(uid),
+            "collection": collection,
+            "version": "1.3",
+            "submissionTime": "2026-01-01T00:00:00.000Z",
+            "product": {
+                "name": name,
+                "dataVersion": data_version,
+                "files": [
+                    {
+                        "name": Path(file["Key"]).name,
+                        "type": "data",
+                        "uri": f"s3://{file['Bucket']}/{file['Key']}",
+                        "size": file["Size"],
+                        "checksum": file["ETag"],
+                        "checksumType": "md5",
+                    }
+                    for file in files
+                ],
+            },
+            "provider": "test-provider",
+        }
+
+    return mock_make_cnm_s

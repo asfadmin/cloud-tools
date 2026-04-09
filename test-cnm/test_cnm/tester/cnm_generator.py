@@ -1,6 +1,8 @@
+import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 from test_cnm.metadata import CHECKSUM_PATTERN, Metadata
 
@@ -44,7 +46,7 @@ class CnmSGenerator:
         files: list,
     ) -> dict:
         cnm_s = {
-            "identifier": name,
+            "identifier": str(uuid.uuid4()),
             "collection": collection,
             "version": "1.3",
             "submissionTime": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
