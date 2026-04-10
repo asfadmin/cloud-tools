@@ -2,19 +2,25 @@ import json
 from unittest import mock
 
 import pytest
+from test_cnm.config import ConfigFull
+from test_cnm.metadata import Metadata
 from test_cnm.tester.executor import TestExecutor
 from test_cnm.tester.types import ExecutableTest, TestCollector, TestInfo
 
 
 @pytest.fixture
-def executor(boto_session, mock_make_cnm_s, ingest_queue_1, response_queue):
+def executor(boto_session, test_bucket, mock_make_cnm_s, ingest_queue_1, response_queue):
     return TestExecutor(
         session=boto_session,
         collector=mock.create_autospec(TestCollector),
         make_cnm_s=mock_make_cnm_s,
-        default_data_version="1.0",
-        default_cnm_ingest_queue=ingest_queue_1[1],
-        default_cnm_response_queue=response_queue[1],
+        metadata=Metadata(boto_session, test_bucket.name),
+        config=ConfigFull(
+            test_bucket=test_bucket.name,
+            cnm_ingest_queue=ingest_queue_1[1],
+            cnm_response_queue=response_queue[1],
+            provider="TEST",
+        ),
     )
 
 

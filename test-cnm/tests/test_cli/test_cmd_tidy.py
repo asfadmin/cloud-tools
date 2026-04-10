@@ -19,6 +19,11 @@ def test_bucket(test_bucket):
     metadata.put(
         Body=json.dumps(
             {
+                "$testconfig": {
+                    "COLLECTION_1/PRODUCT_1": {
+                        "foo": "bar",
+                    },
+                },
                 obj1.key: {
                     "checksum": "11111111111111111111111111111111",
                 },
@@ -56,6 +61,38 @@ def test_tidy(test_bucket):
     metadata_dict = json.loads(metadata_obj.get()["Body"].read())
 
     assert metadata_dict == {
+        "$testconfig": {
+            "COLLECTION_1/PRODUCT_1": {
+                "foo": "bar",
+            },
+        },
+        "COLLECTION_1/PRODUCT_1/file1.txt": {
+            "checksum": "33333333333333333333333333333333",
+            "type": "data",
+        },
+        "COLLECTION_1/PRODUCT_1/file2.txt": {
+            "checksum": "44444444444444444444444444444444",
+            "type": "qa",
+        },
+    }
+
+
+def test_tidy_no_test_config(test_bucket):
+    metadata_obj = test_bucket.Object("metadata.json")
+    metadata_dict = json.loads(metadata_obj.get()["Body"].read())
+    del metadata_dict["$testconfig"]
+    metadata_obj.put(Body=json.dumps(metadata_dict))
+
+    main(["tidy"])
+
+    assert [obj.key for obj in test_bucket.objects.all()] == [
+        "COLLECTION_1/PRODUCT_1/file1.txt",
+        "COLLECTION_1/PRODUCT_1/file2.txt",
+        "metadata.json",
+    ]
+    metadata_dict = json.loads(metadata_obj.get()["Body"].read())
+
+    assert metadata_dict == {
         "COLLECTION_1/PRODUCT_1/file1.txt": {
             "checksum": "33333333333333333333333333333333",
             "type": "data",
@@ -79,6 +116,11 @@ def test_tidy_keep_metadata(test_bucket):
     metadata_dict = json.loads(metadata_obj.get()["Body"].read())
 
     assert metadata_dict == {
+        "$testconfig": {
+            "COLLECTION_1/PRODUCT_1": {
+                "foo": "bar",
+            },
+        },
         "COLLECTION_1/": {
             "checksum": "11111111111111111111111111111111",
         },

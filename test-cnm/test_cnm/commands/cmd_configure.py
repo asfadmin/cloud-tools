@@ -1,0 +1,70 @@
+import argparse
+import logging
+
+from test_cnm.config import ConfigBasic
+from test_cnm.metadata import Metadata
+from test_cnm.tester.collector import BucketTestCollector
+
+log = logging.getLogger(__name__)
+
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+) -> argparse.ArgumentParser:
+    parser_update_metadata = subparsers.add_parser(
+        "configure",
+        help="Update metadata file to set test level configuration",
+    )
+    parser_update_metadata.add_argument(
+        "filter",
+        help="Glob pattern to filter tests by. Can include '*', '?' and '[]' expressions",
+        nargs="*",
+        default=[],
+    )
+    properties_group = parser_update_metadata.add_argument_group("properties")
+    properties_group.add_argument(
+        "--cnm-ingest-queue",
+        help="Override the cnm_ingest_queue that the CNM-S will be sent to for the tests",
+    )
+    properties_group.add_argument(
+        "--cnm-response-queue",
+        help="Override the cnm_response_queue that the CNM client will poll for the CNM-R response for the tests",
+    )
+    parser_update_metadata.set_defaults(
+        func=cmd_update_metadata,
+        config_cls=ConfigBasic,
+    )
+
+    return parser_update_metadata
+
+
+def cmd_update_metadata(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    config: ConfigBasic,
+):
+    filters = args.filter
+
+    session = config.session()
+
+    collector = BucketTestCollector(
+        session,
+        config.test_bucket,
+    )
+    tests = collector.collect_tests(filters)
+
+    with Metadata(session, config.test_bucket) as metadata:
+        for test in tests.values():
+            test_id = test.get_id()
+            cfg = metadata.test_config[test_id]
+
+            for attr in ("cnm_ingest_queue", "cnm_response_queue"):
+                value = getattr(args, attr)
+                if value:
+                    log.debug("%s setting %s to %s", test_id, attr, value)
+                    cfg[attr] = value
+
+            if cfg:
+                log.info("%s:", test_id)
+                for attr, value in cfg.items():
+                    log.info("    %s: %s", attr, value)

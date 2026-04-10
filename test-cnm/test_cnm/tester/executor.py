@@ -2,9 +2,11 @@ import json
 import logging
 from collections.abc import Generator
 
+from test_cnm.config import ConfigFull
+from test_cnm.metadata import Metadata
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.ingest_client import CnmIngestClient
-from test_cnm.tester.types import ExecutableTest, TestCollector
+from test_cnm.tester.types import ExecutableTest, TestCollector, TestInfo
 
 log = logging.getLogger(__name__)
 
@@ -15,22 +17,34 @@ class TestExecutor:
         session,
         collector: TestCollector,
         make_cnm_s: CnmSGenerator,
-        default_data_version: str,
-        default_cnm_ingest_queue: str,
-        default_cnm_response_queue: str,
+        metadata: Metadata,
+        config: ConfigFull,
     ):
         self.session = session
         self.collector = collector
         self.make_cnm_s = make_cnm_s
-        self.default_data_version = default_data_version
-        self.default_cnm_ingest_queue = default_cnm_ingest_queue
-        self.default_cnm_response_queue = default_cnm_response_queue
+        self.metadata = metadata
+        self.config = config
 
     def new_test_run(self, filters: list[str]) -> "TestRun":
         return TestRun(self, filters)
 
     def run(self, filters: list[str]):
         self.new_test_run(filters).run()
+
+    def resolve_test(self, test: TestInfo) -> ExecutableTest:
+        config = self.config.dynamic_config(self.metadata.test_config[test.get_id()])
+        log.debug("Config for test %s: %s", test.get_id(), config)
+
+        return ExecutableTest(
+            collection=test.collection,
+            data_version=test.data_version,
+            resolved_data_version=test.data_version or config.default_data_version,
+            name=test.name,
+            files=test.files,
+            cnm_ingest_queue=config.cnm_ingest_queue_name(),
+            cnm_response_queue=config.cnm_response_queue_name(),
+        )
 
 
 class TestRun:
@@ -100,17 +114,9 @@ class TestRun:
     def collect_tests(self):
         assert self._state == "not_started", "Tests must be collected only once"
 
-        # TODO: Resolve per-test ingest queue config somehow
         self.tests = [
-            ExecutableTest(
-                collection=test.collection,
-                data_version=test.data_version,
-                resolved_data_version=test.data_version or self.executor.default_data_version,
-                name=test.name,
-                files=test.files,
-                cnm_ingest_queue=self.executor.default_cnm_ingest_queue,
-                cnm_response_queue=self.executor.default_cnm_response_queue,
-            )
+            # ruff hint
+            self.executor.resolve_test(test)
             for test in self.executor.collector.collect_tests(self.filters).values()
         ]
 

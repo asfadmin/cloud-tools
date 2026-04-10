@@ -56,9 +56,8 @@ def cmd_test(
             trace=config.trace,
             metadata=metadata,
         ),
-        default_data_version=config.default_data_version,
-        default_cnm_ingest_queue=config.cnm_ingest_queue_name(),
-        default_cnm_response_queue=config.cnm_response_queue_name(),
+        metadata=metadata,
+        config=config,
     )
 
     log.info("Executing tests on %s", config.stack_name)

@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import re
+from collections import defaultdict
 
 import boto3
 
@@ -22,8 +23,13 @@ class Metadata:
         self.session = session
         self.bucket = bucket
         self.key = key
+        self.test_config_key = "$testconfig"
 
-        self.metadata = {}
+        self.metadata = defaultdict(dict)
+
+    @property
+    def test_config(self) -> dict:
+        return self[self.test_config_key]
 
     def load(self):
         client = self.session.client("s3")
@@ -42,7 +48,11 @@ class Metadata:
                     Key=self.key,
                 )
                 buf.seek(0)
-                self.metadata = json.load(buf)
+                self.metadata = defaultdict(dict, json.load(buf))
+                self.metadata[self.test_config_key] = defaultdict(
+                    dict,
+                    self.metadata[self.test_config_key],
+                )
         except Exception as e:
             log.error("Failed to load metadata file: %s", e)
             log.debug(
@@ -62,6 +72,8 @@ class Metadata:
         )
 
         try:
+            if not self[self.test_config_key]:
+                del self[self.test_config_key]
             # Json requires a StringIO, but boto3 wants a BytesIO
             StreamWriter = codecs.getwriter("utf-8")
 
@@ -107,8 +119,8 @@ class Metadata:
         del self.metadata[key]
 
     def __getitem__(self, key: str) -> dict:
-        if key not in self.metadata:
-            self.metadata[key] = {}
+        if key == self.test_config_key and key not in self.metadata:
+            self.metadata[key] = defaultdict(dict)
 
         return self.metadata[key]
 

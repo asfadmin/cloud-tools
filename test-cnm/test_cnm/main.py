@@ -16,6 +16,7 @@ from platform import python_version
 from typing import Optional
 
 from test_cnm.commands import (
+    cmd_configure,
     cmd_list,
     cmd_move,
     cmd_test,
@@ -95,6 +96,7 @@ def get_parser() -> argparse.ArgumentParser:
         dest="command",
     )
 
+    cmd_configure.add_parser(subparsers)
     cmd_list.add_parser(subparsers)
     cmd_move.add_parser(subparsers)
     cmd_test.add_parser(subparsers)

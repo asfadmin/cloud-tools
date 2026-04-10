@@ -1,6 +1,6 @@
 import argparse
 import configparser
-from dataclasses import MISSING, dataclass, fields
+from dataclasses import MISSING, dataclass, fields, replace
 from typing import Optional, Union
 
 import boto3
@@ -82,17 +82,21 @@ class ConfigFull(ConfigBase):
     # TODO(reweeden): python3.10 refactor duplication
     profile: Optional[str] = None
 
+    def dynamic_config(self, cfg: dict) -> "ConfigFull":
+        return replace(self, **cfg)
+
     def session(self) -> boto3.Session:
         return boto3.Session(profile_name=self.profile)
 
     def cnm_ingest_queue_name(self) -> str:
-        if self.stack_name and not self.cnm_ingest_queue.startswith(self.stack_name):
-            return f"{self.stack_name}-{self.cnm_ingest_queue}"
-
-        return self.cnm_ingest_queue
+        return get_queue_name(self.stack_name, self.cnm_ingest_queue)
 
     def cnm_response_queue_name(self) -> str:
-        if self.stack_name and not self.cnm_response_queue.startswith(self.stack_name):
-            return f"{self.stack_name}-{self.cnm_response_queue}"
+        return get_queue_name(self.stack_name, self.cnm_response_queue)
 
-        return self.cnm_response_queue
+
+def get_queue_name(stack_name: Optional[str], queue_name: str) -> str:
+    if stack_name and not queue_name.startswith(stack_name):
+        return f"{stack_name}-{queue_name}"
+
+    return queue_name

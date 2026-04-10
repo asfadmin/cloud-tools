@@ -43,6 +43,14 @@ def sqs_client(boto_session):
 
 
 @pytest.fixture
+def test_bucket(s3_resource):
+    bucket = s3_resource.Bucket("test-bucket")
+    bucket.create()
+
+    return bucket
+
+
+@pytest.fixture
 def mock_make_cnm_s():
     uid = 0
 

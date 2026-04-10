@@ -5,14 +5,6 @@ import logging
 import pytest
 
 
-@pytest.fixture
-def test_bucket(s3_resource):
-    bucket = s3_resource.Bucket("test-bucket")
-    bucket.create()
-
-    return bucket
-
-
 @pytest.fixture(autouse=True)
 def home_directory(tmp_path, test_bucket, monkeypatch):
     home_path = tmp_path / "home"
