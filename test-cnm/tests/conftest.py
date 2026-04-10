@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 import boto3
 import pytest
@@ -59,6 +60,8 @@ def mock_make_cnm_s():
         data_version: str,
         name: str,
         files: list,
+        provider: str,
+        trace: Optional[str],
     ) -> dict:
         nonlocal uid
         uid += 1
@@ -83,7 +86,7 @@ def mock_make_cnm_s():
                     for file in files
                 ],
             },
-            "provider": "test-provider",
+            "provider": provider,
         }
 
     return mock_make_cnm_s

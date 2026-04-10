@@ -24,18 +24,14 @@ DATA_TYPE_MAP = {
     ".xml": "data",
 }
 
-CnmSGeneratorType = Callable[[str, str, str, list], dict]
+CnmSGeneratorType = Callable[[str, str, str, list, str, Optional[str]], dict]
 
 
 class CnmSGenerator:
     def __init__(
         self,
-        provider: str,
-        trace: Optional[str] = None,
         metadata: Optional[Metadata] = None,
     ):
-        self.provider = provider
-        self.trace = trace
         self.metadata = metadata
 
     def __call__(
@@ -44,6 +40,8 @@ class CnmSGenerator:
         data_version: str,
         name: str,
         files: list,
+        provider: str,
+        trace: Optional[str] = None,
     ) -> dict:
         cnm_s = {
             "identifier": str(uuid.uuid4()),
@@ -65,10 +63,10 @@ class CnmSGenerator:
                     for file in files
                 ],
             },
-            "provider": self.provider,
+            "provider": provider,
         }
-        if self.trace:
-            cnm_s["trace"] = self.trace
+        if trace:
+            cnm_s["trace"] = trace
 
         return cnm_s
 

@@ -44,6 +44,8 @@ class TestExecutor:
             files=test.files,
             cnm_ingest_queue=config.cnm_ingest_queue_name(),
             cnm_response_queue=config.cnm_response_queue_name(),
+            provider=config.provider,
+            trace=config.trace,
         )
 
 

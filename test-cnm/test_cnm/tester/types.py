@@ -28,6 +28,8 @@ class ExecutableTest(TestInfo):
     resolved_data_version: str
     cnm_ingest_queue: str
     cnm_response_queue: str
+    provider: str
+    trace: Optional[str] = None
     cnm_s: Optional[dict] = None
 
 

@@ -42,6 +42,7 @@ def test_submit_request(boto_session, sqs_client, mock_make_cnm_s, ingest_queue)
             ],
             cnm_ingest_queue=ingest_queue[1],
             cnm_response_queue="<unused>",
+            provider="test-provider",
         )
     )
 
@@ -97,6 +98,7 @@ def test_process_messages(boto_session, sqs_client, mock_make_cnm_s, ingest_queu
             ],
             cnm_ingest_queue=ingest_queue[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         )
     )
 

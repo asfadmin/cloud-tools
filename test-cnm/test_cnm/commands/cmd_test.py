@@ -51,11 +51,7 @@ def cmd_test(
             session,
             config.test_bucket,
         ),
-        make_cnm_s=CnmSGenerator(
-            provider=args.provider or "ASF-TESTCNM",
-            trace=config.trace,
-            metadata=metadata,
-        ),
+        make_cnm_s=CnmSGenerator(metadata),
         metadata=metadata,
         config=config,
     )

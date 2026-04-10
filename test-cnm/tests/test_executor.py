@@ -19,7 +19,7 @@ def executor(boto_session, test_bucket, mock_make_cnm_s, ingest_queue_1, respons
             test_bucket=test_bucket.name,
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
-            provider="TEST",
+            provider="test-provider",
         ),
     )
 
@@ -94,6 +94,7 @@ def test_collect_tests(executor, ingest_queue_1, response_queue):
             ],
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
         ExecutableTest(
             collection="TEST_COLLECTION",
@@ -110,6 +111,7 @@ def test_collect_tests(executor, ingest_queue_1, response_queue):
             ],
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
     ]
 
@@ -133,6 +135,7 @@ def test_iter_start_tests(executor, sqs_client, ingest_queue_1, response_queue):
             ],
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
         ExecutableTest(
             collection="TEST_COLLECTION",
@@ -149,6 +152,7 @@ def test_iter_start_tests(executor, sqs_client, ingest_queue_1, response_queue):
             ],
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
     ]
     test_run._state = "tests_collected"
@@ -232,6 +236,7 @@ def test_iter_start_tests_multiple_clients(
             ],
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
         ExecutableTest(
             collection="TEST_COLLECTION",
@@ -248,6 +253,7 @@ def test_iter_start_tests_multiple_clients(
             ],
             cnm_ingest_queue=ingest_queue_2[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
     ]
     test_run._state = "tests_collected"
@@ -336,6 +342,7 @@ def test_iter_responses(
             ],
             cnm_ingest_queue=ingest_queue_1[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
         ExecutableTest(
             collection="TEST_COLLECTION",
@@ -352,6 +359,7 @@ def test_iter_responses(
             ],
             cnm_ingest_queue=ingest_queue_2[1],
             cnm_response_queue=response_queue[1],
+            provider="test-provider",
         ),
     ]
     test_run._state = "tests_collected"

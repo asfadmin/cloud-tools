@@ -36,6 +36,8 @@ class CnmIngestClient:
             test.resolved_data_version,
             test.name,
             test.files,
+            test.provider,
+            test.trace,
         )
 
         message_body = json.dumps(cnm_s, indent=2)
