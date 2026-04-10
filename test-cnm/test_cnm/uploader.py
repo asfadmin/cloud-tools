@@ -1,12 +1,36 @@
 import hashlib
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import IO, Optional
 
 import boto3
-from test_cnm.metadata import ChecksumReaderProxy, Metadata
+from test_cnm.metadata import Metadata
 
 log = logging.getLogger(__name__)
+
+
+class ChecksumReaderProxy:
+    """Compute a checksum while reading from a file-like object"""
+
+    def __init__(self, f: IO[bytes], hash_obj):
+        self.f = f
+        self.hash_obj = hash_obj
+
+    def read(self, n: int = -1) -> bytes:
+        data = self.f.read(n)
+        self.hash_obj.update(data)
+        return data
+
+
+class ChecksumWriter:
+    """A file-like object that computes a checksum when consuming data"""
+
+    def __init__(self, hash_obj):
+        self.hash_obj = hash_obj
+
+    def write(self, data: bytes) -> int:
+        self.hash_obj.update(data)
+        return len(data)
 
 
 class Uploader:

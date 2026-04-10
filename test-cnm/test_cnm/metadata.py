@@ -3,7 +3,6 @@ import io
 import json
 import logging
 import re
-from typing import IO
 
 import boto3
 
@@ -115,27 +114,3 @@ class Metadata:
 
     def __setitem__(self, key: str, value: dict):
         self.metadata[key] = value
-
-
-class ChecksumReaderProxy:
-    """Compute a checksum while reading from a file-like object"""
-
-    def __init__(self, f: IO[bytes], hash_obj):
-        self.f = f
-        self.hash_obj = hash_obj
-
-    def read(self, n: int = -1) -> bytes:
-        data = self.f.read(n)
-        self.hash_obj.update(data)
-        return data
-
-
-class ChecksumWriter:
-    """A file-like object that computes a checksum when consuming data"""
-
-    def __init__(self, hash_obj):
-        self.hash_obj = hash_obj
-
-    def write(self, data: bytes) -> int:
-        self.hash_obj.update(data)
-        return len(data)
