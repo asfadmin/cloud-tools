@@ -8,6 +8,11 @@ from collections import defaultdict
 
 import boto3
 
+try:
+    from typing import Self
+except ImportError:
+    Self = "Metadata"
+
 log = logging.getLogger(__name__)
 
 
@@ -119,7 +124,7 @@ class Metadata:
         if not entry:
             del self.metadata[key]
 
-    def __enter__(self) -> "Metadata":
+    def __enter__(self) -> Self:
         self.load()
         return self
 
