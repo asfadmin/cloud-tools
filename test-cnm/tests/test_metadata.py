@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import pytest
 from test_cnm.metadata import Metadata
@@ -40,6 +41,18 @@ def test_save(test_bucket, metadata):
             "checksum": "qux",
         },
     }
+
+
+def test_save_when_unmodified(test_bucket, metadata):
+    test_bucket.Object("metadata.json").put(
+        Body=json.dumps({"foo": {"checksum": "bar"}}),
+    )
+
+    metadata.load()
+    metadata.session = mock.Mock()
+    metadata.save()
+
+    metadata.session.client().upload_fileobj.assert_not_called()
 
 
 def test_contextmanager(test_bucket, metadata):

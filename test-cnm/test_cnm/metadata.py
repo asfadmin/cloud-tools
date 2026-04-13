@@ -1,4 +1,5 @@
 import codecs
+import hashlib
 import io
 import json
 import logging
@@ -26,6 +27,12 @@ class Metadata:
         self.test_config_key = "$testconfig"
 
         self.metadata = defaultdict(dict)
+        self._metadata_hash = ""
+
+    def _get_metadata_hash(self) -> str:
+        return hashlib.md5(
+            json.dumps(self.metadata, sort_keys=True).encode(),
+        ).hexdigest()
 
     @property
     def test_config(self) -> dict:
@@ -53,6 +60,7 @@ class Metadata:
                     dict,
                     self.metadata[self.test_config_key],
                 )
+                self._metadata_hash = self._get_metadata_hash()
         except Exception as e:
             log.error("Failed to load metadata file: %s", e)
             log.debug(
@@ -64,6 +72,11 @@ class Metadata:
 
     def save(self):
         client = self.session.client("s3")
+
+        new_metadata_hash = self._get_metadata_hash()
+        if new_metadata_hash == self._metadata_hash:
+            log.debug("No changes to metadata file. Skipping save()")
+            return
 
         log.debug(
             "Saving metadata file to s3://%s/%s",
@@ -85,6 +98,7 @@ class Metadata:
                     Bucket=self.bucket,
                     Key=self.key,
                 )
+            self._metadata_hash = new_metadata_hash
         except Exception as e:
             log.error("Failed to save checksums file: %s", e)
             log.debug(
