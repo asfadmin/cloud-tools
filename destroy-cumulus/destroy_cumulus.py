@@ -549,21 +549,33 @@ class Bucket(Resource):
         version_paginator = client.get_paginator("list_object_versions")
 
         for response in version_paginator.paginate(Bucket=self.name):
-            if "Versions" not in response:
-                continue
+            if "Versions" in response:
+                client.delete_objects(
+                    Bucket=self.name,
+                    Delete=dict(
+                        Objects=[
+                            {
+                                "Key": entry["Key"],
+                                "VersionId": entry["VersionId"],
+                            }
+                            for entry in response["Versions"]
+                        ],
+                    ),
+                )
 
-            client.delete_objects(
-                Bucket=self.name,
-                Delete=dict(
-                    Objects=[
-                        {
-                            "Key": entry["Key"],
-                            "VersionId": entry["VersionId"],
-                        }
-                        for entry in response["Versions"]
-                    ],
-                ),
-            )
+            if "DeleteMarkers" in response:
+                client.delete_objects(
+                    Bucket=self.name,
+                    Delete=dict(
+                        Objects=[
+                            {
+                                "Key": entry["Key"],
+                                "VersionId": entry["VersionId"],
+                            }
+                            for entry in response["DeleteMarkers"]
+                        ],
+                    ),
+                )
 
         for response in object_paginator.paginate(Bucket=self.name):
             if "Contents" not in response:
