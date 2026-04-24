@@ -24,3 +24,9 @@ def aws_credentials():
 def get_client():
     with mock_aws():
         yield boto3.client
+
+
+@pytest.fixture
+def s3_resource():
+    with mock_aws():
+        yield boto3.resource("s3")

@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import functools
+import itertools
 import json
 import logging
 import re
@@ -545,40 +546,29 @@ class Bucket(Resource):
 
     def delete(self, get_client):
         client = get_client("s3")
-        object_paginator = client.get_paginator("list_objects_v2")
         version_paginator = client.get_paginator("list_object_versions")
 
-        for response in version_paginator.paginate(Bucket=self.name):
-            if "Versions" not in response:
-                continue
+        def list_objects():
+            for response in version_paginator.paginate(Bucket=self.name):
+                yield from (
+                    {
+                        "Key": entry["Key"],
+                        "VersionId": entry["VersionId"],
+                    }
+                    for entry in response.get("Versions", ())
+                )
+                yield from (
+                    {
+                        "Key": entry["Key"],
+                        "VersionId": entry["VersionId"],
+                    }
+                    for entry in response.get("DeleteMarkers", ())
+                )
 
+        for object_batch in _batched(list_objects(), 1000):
             client.delete_objects(
                 Bucket=self.name,
-                Delete=dict(
-                    Objects=[
-                        {
-                            "Key": entry["Key"],
-                            "VersionId": entry["VersionId"],
-                        }
-                        for entry in response["Versions"]
-                    ],
-                ),
-            )
-
-        for response in object_paginator.paginate(Bucket=self.name):
-            if "Contents" not in response:
-                continue
-
-            client.delete_objects(
-                Bucket=self.name,
-                Delete=dict(
-                    Objects=[
-                        {
-                            "Key": entry["Key"],
-                        }
-                        for entry in response["Contents"]
-                    ],
-                ),
+                Delete={"Objects": object_batch},
             )
 
         client.delete_bucket(Bucket=self.name)
@@ -1944,6 +1934,14 @@ def pluralize(word):
 
 def _tag_dict(tags):
     return {tag["Key"]: tag["Value"] for tag in tags}
+
+
+def _batched(iterable, n):
+    # TODO(reweeden): Python3.12 adds itertools.batched. When 3.12 is MSV
+    # replace this helper with itertools.batched.
+    iterator = iter(iterable)
+    while batch := tuple(itertools.islice(iterator, n)):
+        yield batch
 
 
 def _get_version() -> str:
