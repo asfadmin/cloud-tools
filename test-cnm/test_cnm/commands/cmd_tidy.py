@@ -43,6 +43,7 @@ def cmd_tidy(
 
     with Metadata(session, config.test_bucket) as metadata:
         extra_metadata = dict(metadata.metadata)
+        extra_metadata.pop(metadata.test_config_key, None)
 
         total = 0
         deleted = 0

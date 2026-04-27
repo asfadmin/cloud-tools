@@ -6,7 +6,6 @@ from test_cnm.metadata import Metadata
 from test_cnm.tester.cnm_generator import CnmSGenerator
 from test_cnm.tester.collector import BucketTestCollector
 from test_cnm.tester.executor import TestExecutor
-from test_cnm.tester.ingest_client import CnmIngestClient
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -46,24 +45,15 @@ def cmd_test(
     metadata = Metadata(session, config.test_bucket)
     metadata.load()
 
-    collector = BucketTestCollector(
-        session,
-        config.test_bucket,
-    )
-    ingest_client = CnmIngestClient(
-        session=session,
-        make_cnm_s=CnmSGenerator(
-            provider=args.provider or "ASF-TESTCNM",
-            trace=config.trace,
-            metadata=metadata,
-        ),
-        start_queue=config.cnm_ingest_queue_name(),
-        response_queue=config.cnm_response_queue_name(),
-    )
     executor = TestExecutor(
-        collector,
-        ingest_client,
-        config.default_data_version,
+        session=session,
+        collector=BucketTestCollector(
+            session,
+            config.test_bucket,
+        ),
+        make_cnm_s=CnmSGenerator(metadata),
+        metadata=metadata,
+        config=config,
     )
 
     log.info("Executing tests on %s", config.stack_name)

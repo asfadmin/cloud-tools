@@ -1,7 +1,7 @@
 import configparser
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from test_cnm.main import main
@@ -115,7 +115,7 @@ class CnmResponder:
                 cnm_r = {
                     "version": cnm_s["version"],
                     "receivedTime": cnm_s.get("receivedTime"),
-                    "processCompleteTime": datetime.utcnow().strftime(
+                    "processCompleteTime": datetime.now(timezone.utc).strftime(
                         "%Y-%m-%d %H:%M:%SZ",
                     ),
                     "product": {

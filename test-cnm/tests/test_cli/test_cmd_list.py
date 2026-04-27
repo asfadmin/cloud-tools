@@ -44,16 +44,16 @@ def test_list_all(capcli):
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
-      - PRODUCT_1 (2 files)
-      - PRODUCT_2 (2 files)
+      - COLLECTION_1/PRODUCT_1 (2 files)
+      - COLLECTION_1/PRODUCT_2 (2 files)
     COLLECTION_2:
-      - PRODUCT_1 (4 files)
+      - COLLECTION_2/PRODUCT_1 (4 files)
     DATA_VERSION_1:
-      - 1.0/PRODUCT_1 (2 files)
+      - DATA_VERSION_1/1.0/PRODUCT_1 (2 files)
     DATA_VERSION_2:
-      - 1/PRODUCT_1 (2 files)
+      - DATA_VERSION_2/1/PRODUCT_1 (2 files)
     OTHER_COLLECTION:
-      - PRODUCT_1 (2 files)
+      - OTHER_COLLECTION/PRODUCT_1 (2 files)
 
     Totals: 5 Collections; 6 Tests
     """.lstrip("\n")
@@ -68,8 +68,8 @@ def test_list_prefix(capcli):
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
-      - PRODUCT_1 (2 files)
-      - PRODUCT_2 (2 files)
+      - COLLECTION_1/PRODUCT_1 (2 files)
+      - COLLECTION_1/PRODUCT_2 (2 files)
 
     Totals: 1 Collections; 2 Tests
     """.lstrip("\n")
@@ -84,10 +84,10 @@ def test_list_prefix_multiple(capcli):
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
-      - PRODUCT_1 (2 files)
-      - PRODUCT_2 (2 files)
+      - COLLECTION_1/PRODUCT_1 (2 files)
+      - COLLECTION_1/PRODUCT_2 (2 files)
     COLLECTION_2:
-      - PRODUCT_1 (4 files)
+      - COLLECTION_2/PRODUCT_1 (4 files)
 
     Totals: 2 Collections; 3 Tests
     """.lstrip("\n")
@@ -102,28 +102,28 @@ def test_list_files(capcli):
     Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
     Collecting tests from bucket test-bucket
     COLLECTION_1:
-      - PRODUCT_1 (2 files)
+      - COLLECTION_1/PRODUCT_1 (2 files)
         ├── file1.txt
         └── file2.txt
-      - PRODUCT_2 (2 files)
+      - COLLECTION_1/PRODUCT_2 (2 files)
         ├── file1.txt
         └── file2.txt
     COLLECTION_2:
-      - PRODUCT_1 (4 files)
+      - COLLECTION_2/PRODUCT_1 (4 files)
         ├── file1.txt
         ├── file2.txt
         ├── file3.txt
         └── file4.txt
     DATA_VERSION_1:
-      - 1.0/PRODUCT_1 (2 files)
+      - DATA_VERSION_1/1.0/PRODUCT_1 (2 files)
         ├── file1.txt
         └── file2.txt
     DATA_VERSION_2:
-      - 1/PRODUCT_1 (2 files)
+      - DATA_VERSION_2/1/PRODUCT_1 (2 files)
         ├── file1.txt
         └── file2.txt
     OTHER_COLLECTION:
-      - PRODUCT_1 (2 files)
+      - OTHER_COLLECTION/PRODUCT_1 (2 files)
         ├── file1.txt
         └── file2.txt
 

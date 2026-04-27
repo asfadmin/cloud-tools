@@ -1,6 +1,8 @@
+import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 from test_cnm.metadata import CHECKSUM_PATTERN, Metadata
 
@@ -22,18 +24,14 @@ DATA_TYPE_MAP = {
     ".xml": "data",
 }
 
-CnmSGeneratorType = Callable[[str, str, str, list], dict]
+CnmSGeneratorType = Callable[[str, str, str, list, str, Optional[str]], dict]
 
 
 class CnmSGenerator:
     def __init__(
         self,
-        provider: str,
-        trace: Optional[str] = None,
         metadata: Optional[Metadata] = None,
     ):
-        self.provider = provider
-        self.trace = trace
         self.metadata = metadata
 
     def __call__(
@@ -42,9 +40,11 @@ class CnmSGenerator:
         data_version: str,
         name: str,
         files: list,
+        provider: str,
+        trace: Optional[str] = None,
     ) -> dict:
         cnm_s = {
-            "identifier": name,
+            "identifier": str(uuid.uuid4()),
             "collection": collection,
             "version": "1.3",
             "submissionTime": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
@@ -63,10 +63,10 @@ class CnmSGenerator:
                     for file in files
                 ],
             },
-            "provider": self.provider,
+            "provider": provider,
         }
-        if self.trace:
-            cnm_s["trace"] = self.trace
+        if trace:
+            cnm_s["trace"] = trace
 
         return cnm_s
 

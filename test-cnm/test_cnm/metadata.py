@@ -1,11 +1,17 @@
 import codecs
+import hashlib
 import io
 import json
 import logging
 import re
-from typing import IO
+from collections import defaultdict
 
 import boto3
+
+try:
+    from typing import Self
+except ImportError:
+    Self = "Metadata"
 
 log = logging.getLogger(__name__)
 
@@ -23,8 +29,19 @@ class Metadata:
         self.session = session
         self.bucket = bucket
         self.key = key
+        self.test_config_key = "$testconfig"
 
-        self.metadata = {}
+        self.metadata = defaultdict(dict)
+        self._metadata_hash = ""
+
+    def _get_metadata_hash(self) -> str:
+        return hashlib.md5(
+            json.dumps(self.metadata, sort_keys=True).encode(),
+        ).hexdigest()
+
+    @property
+    def test_config(self) -> dict:
+        return self[self.test_config_key]
 
     def load(self):
         client = self.session.client("s3")
@@ -43,7 +60,12 @@ class Metadata:
                     Key=self.key,
                 )
                 buf.seek(0)
-                self.metadata = json.load(buf)
+                self.metadata = defaultdict(dict, json.load(buf))
+                self.metadata[self.test_config_key] = defaultdict(
+                    dict,
+                    self.metadata[self.test_config_key],
+                )
+                self._metadata_hash = self._get_metadata_hash()
         except Exception as e:
             log.error("Failed to load metadata file: %s", e)
             log.debug(
@@ -56,6 +78,11 @@ class Metadata:
     def save(self):
         client = self.session.client("s3")
 
+        new_metadata_hash = self._get_metadata_hash()
+        if new_metadata_hash == self._metadata_hash:
+            log.debug("No changes to metadata file. Skipping save()")
+            return
+
         log.debug(
             "Saving metadata file to s3://%s/%s",
             self.bucket,
@@ -63,6 +90,8 @@ class Metadata:
         )
 
         try:
+            if not self[self.test_config_key]:
+                del self[self.test_config_key]
             # Json requires a StringIO, but boto3 wants a BytesIO
             StreamWriter = codecs.getwriter("utf-8")
 
@@ -74,6 +103,7 @@ class Metadata:
                     Bucket=self.bucket,
                     Key=self.key,
                 )
+            self._metadata_hash = new_metadata_hash
         except Exception as e:
             log.error("Failed to save checksums file: %s", e)
             log.debug(
@@ -94,7 +124,7 @@ class Metadata:
         if not entry:
             del self.metadata[key]
 
-    def __enter__(self) -> "Metadata":
+    def __enter__(self) -> Self:
         self.load()
         return self
 
@@ -108,34 +138,10 @@ class Metadata:
         del self.metadata[key]
 
     def __getitem__(self, key: str) -> dict:
-        if key not in self.metadata:
-            self.metadata[key] = {}
+        if key == self.test_config_key and key not in self.metadata:
+            self.metadata[key] = defaultdict(dict)
 
         return self.metadata[key]
 
     def __setitem__(self, key: str, value: dict):
         self.metadata[key] = value
-
-
-class ChecksumReaderProxy:
-    """Compute a checksum while reading from a file-like object"""
-
-    def __init__(self, f: IO[bytes], hash_obj):
-        self.f = f
-        self.hash_obj = hash_obj
-
-    def read(self, n: int = -1) -> bytes:
-        data = self.f.read(n)
-        self.hash_obj.update(data)
-        return data
-
-
-class ChecksumWriter:
-    """A file-like object that computes a checksum when consuming data"""
-
-    def __init__(self, hash_obj):
-        self.hash_obj = hash_obj
-
-    def write(self, data: bytes) -> int:
-        self.hash_obj.update(data)
-        return len(data)

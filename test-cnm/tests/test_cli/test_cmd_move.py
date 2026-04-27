@@ -13,6 +13,11 @@ def test_bucket(test_bucket):
     metadata.put(
         Body=json.dumps(
             {
+                "$testconfig": {
+                    "COLLECTION_1/PRODUCT_1": {
+                        "foo": "bar",
+                    },
+                },
                 obj1.key: {
                     "checksum": "11111111111111111111111111111111",
                     "type": "data",
@@ -34,4 +39,10 @@ def test_move_file(test_bucket):
     assert metadata_dict["COLLECTION_FINAL/PRODUCT_1/file1.txt"] == {
         "checksum": "11111111111111111111111111111111",
         "type": "data",
+    }
+    # Testconfig section is not updated
+    assert metadata_dict["$testconfig"] == {
+        "COLLECTION_1/PRODUCT_1": {
+            "foo": "bar",
+        },
     }

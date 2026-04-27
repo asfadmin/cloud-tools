@@ -7,7 +7,8 @@ from typing import Any, Optional
 
 import boto3
 from test_cnm.config import ConfigBasic
-from test_cnm.metadata import CHECKSUM_PATTERN, ChecksumWriter, Metadata
+from test_cnm.metadata import CHECKSUM_PATTERN, Metadata
+from test_cnm.uploader import ChecksumWriter
 
 log = logging.getLogger(__name__)
 
