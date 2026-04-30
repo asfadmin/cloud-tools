@@ -43,6 +43,24 @@ def test_save(test_bucket, metadata):
     }
 
 
+def test_save_strips_empty_keys(test_bucket, metadata):
+    metadata["foo"]["checksum"] = "baz"
+    metadata["bar"]["checksum"] = "qux"
+    metadata["empty"] = {}
+
+    metadata.save()
+
+    contents = json.load(test_bucket.Object("metadata.json").get()["Body"])
+    assert contents == {
+        "foo": {
+            "checksum": "baz",
+        },
+        "bar": {
+            "checksum": "qux",
+        },
+    }
+
+
 def test_save_when_unmodified(test_bucket, metadata):
     test_bucket.Object("metadata.json").put(
         Body=json.dumps({"foo": {"checksum": "bar"}}),
