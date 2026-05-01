@@ -1,11 +1,14 @@
 import argparse
 import logging
+import sys
 
 from test_cnm.config import ConfigBasic
 from test_cnm.metadata import Metadata
 from test_cnm.tester.collector import BucketTestCollector
 
 log = logging.getLogger(__name__)
+
+ATTRS = ("cnm_ingest_queue", "cnm_response_queue")
 
 
 def add_parser(
@@ -45,6 +48,10 @@ def cmd_update_metadata(
 ):
     filters = args.filter
 
+    if not filters and any(getattr(args, attr) is not None for attr in ATTRS):
+        log.error("No tests selected! If you would like to select all tests, please filter by '*'.")
+        sys.exit(-1)
+
     session = config.session()
 
     collector = BucketTestCollector(
@@ -58,7 +65,7 @@ def cmd_update_metadata(
             test_id = test.get_id()
             cfg = metadata.test_config[test_id]
 
-            for attr in ("cnm_ingest_queue", "cnm_response_queue"):
+            for attr in ATTRS:
                 value = getattr(args, attr)
                 if value:
                     log.debug("%s setting %s to %s", test_id, attr, value)

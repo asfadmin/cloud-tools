@@ -98,3 +98,21 @@ def test_set_config(capcli, test_bucket):
             },
         },
     }
+
+
+def test_set_config_implicit_all(capcli):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "configure",
+                "--cnm-response-queue",
+                "test-c2-response-queue",
+            ]
+        )
+
+    assert capcli.getvalue() == textwrap.dedent(
+        """
+    Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
+    No tests selected! If you would like to select all tests, please filter by '*'.
+    """.lstrip("\n")
+    )
