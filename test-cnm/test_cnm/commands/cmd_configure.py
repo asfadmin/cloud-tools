@@ -17,6 +17,12 @@ To override the cnm queue config for all tests matching the 'ALOS' filter:
   tcnm configure ALOS \
     --cnm-ingest-queue alos1-workflow-queue \
     --cnm-response-queue alos1-mock-response-queue
+
+To un-set the queue config override for all tests:
+
+  tcnm configure "*" \
+    --cnm-ingest-queue "" \
+    --cnm-response-queue ""
 """
 
 ATTRS = ("cnm_ingest_queue", "cnm_response_queue")
@@ -83,6 +89,9 @@ def cmd_update_metadata(
                 if value:
                     log.debug("%s setting %s to %s", test_id, attr, value)
                     cfg[attr] = value
+                elif value is not None and attr in cfg:
+                    log.debug("%s unsetting %s", test_id, attr)
+                    del cfg[attr]
 
             if cfg:
                 log.info("%s:", test_id)

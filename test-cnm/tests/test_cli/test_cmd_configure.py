@@ -116,3 +116,38 @@ def test_set_config_implicit_all(capcli):
     No tests selected! If you would like to select all tests, please filter by '*'.
     """.lstrip("\n")
     )
+
+
+def test_unset_config(capcli, test_bucket):
+    main(
+        [
+            "configure",
+            "COLLECTION_1",
+            "--cnm-ingest-queue",
+            "",
+            "--cnm-response-queue",
+            "",
+        ]
+    )
+
+    assert capcli.getvalue() == textwrap.dedent(
+        """
+    Using config: ConfigBasic(test_bucket='test-bucket', profile=None)
+    Collecting tests from bucket test-bucket
+    Loading metadata file from s3://test-bucket/metadata.json
+    COLLECTION_1/PRODUCT_1 unsetting cnm_ingest_queue
+    Saving metadata file to s3://test-bucket/metadata.json
+    """.lstrip("\n")
+    )
+
+    metadata_obj = test_bucket.Object("metadata.json")
+    metadata_dict = json.loads(metadata_obj.get()["Body"].read())
+
+    assert metadata_dict == {
+        "$testconfig": {
+            "COLLECTION_2/PRODUCT_2": {
+                "cnm_ingest_queue": "test-ingest-queue",
+                "cnm_response_queue": "test-ingest-queue-response",
+            },
+        },
+    }
