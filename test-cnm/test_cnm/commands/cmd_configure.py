@@ -8,6 +8,17 @@ from test_cnm.tester.collector import BucketTestCollector
 
 log = logging.getLogger(__name__)
 
+
+HELP = r"""
+# Examples
+
+To override the cnm queue config for all tests matching the 'ALOS' filter:
+
+  tcnm configure ALOS \
+    --cnm-ingest-queue alos1-workflow-queue \
+    --cnm-response-queue alos1-mock-response-queue
+"""
+
 ATTRS = ("cnm_ingest_queue", "cnm_response_queue")
 
 
@@ -17,6 +28,8 @@ def add_parser(
     parser_update_metadata = subparsers.add_parser(
         "configure",
         help="Update metadata file to set test level configuration",
+        epilog=HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser_update_metadata.add_argument(
         "filter",
