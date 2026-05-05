@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 
 from test_cnm.config import ConfigBasic
 from test_cnm.metadata import Metadata
@@ -8,12 +9,33 @@ from test_cnm.tester.collector import BucketTestCollector
 log = logging.getLogger(__name__)
 
 
+HELP = r"""
+# Examples
+
+To override the cnm queue config for all tests matching the 'ALOS' filter:
+
+  tcnm configure ALOS \
+    --cnm-ingest-queue alos1-workflow-queue \
+    --cnm-response-queue alos1-mock-response-queue
+
+To un-set the queue config override for all tests:
+
+  tcnm configure "*" \
+    --cnm-ingest-queue "" \
+    --cnm-response-queue ""
+"""
+
+ATTRS = ("cnm_ingest_queue", "cnm_response_queue")
+
+
 def add_parser(
     subparsers: argparse._SubParsersAction,
 ) -> argparse.ArgumentParser:
     parser_update_metadata = subparsers.add_parser(
         "configure",
         help="Update metadata file to set test level configuration",
+        epilog=HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser_update_metadata.add_argument(
         "filter",
@@ -45,6 +67,10 @@ def cmd_update_metadata(
 ):
     filters = args.filter
 
+    if not filters and any(getattr(args, attr) is not None for attr in ATTRS):
+        log.error("No tests selected! If you would like to select all tests, please filter by '*'.")
+        sys.exit(-1)
+
     session = config.session()
 
     collector = BucketTestCollector(
@@ -58,11 +84,14 @@ def cmd_update_metadata(
             test_id = test.get_id()
             cfg = metadata.test_config[test_id]
 
-            for attr in ("cnm_ingest_queue", "cnm_response_queue"):
+            for attr in ATTRS:
                 value = getattr(args, attr)
                 if value:
                     log.debug("%s setting %s to %s", test_id, attr, value)
                     cfg[attr] = value
+                elif value is not None and attr in cfg:
+                    log.debug("%s unsetting %s", test_id, attr)
+                    del cfg[attr]
 
             if cfg:
                 log.info("%s:", test_id)

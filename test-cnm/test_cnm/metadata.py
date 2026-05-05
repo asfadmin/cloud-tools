@@ -34,11 +34,6 @@ class Metadata:
         self.metadata = defaultdict(dict)
         self._metadata_hash = ""
 
-    def _get_metadata_hash(self) -> str:
-        return hashlib.md5(
-            json.dumps(self.metadata, sort_keys=True).encode(),
-        ).hexdigest()
-
     @property
     def test_config(self) -> dict:
         return self[self.test_config_key]
@@ -61,11 +56,11 @@ class Metadata:
                 )
                 buf.seek(0)
                 self.metadata = defaultdict(dict, json.load(buf))
+                self._metadata_hash = _hash_dict(self.metadata)
                 self.metadata[self.test_config_key] = defaultdict(
                     dict,
                     self.metadata[self.test_config_key],
                 )
-                self._metadata_hash = self._get_metadata_hash()
         except Exception as e:
             log.error("Failed to load metadata file: %s", e)
             log.debug(
@@ -78,7 +73,8 @@ class Metadata:
     def save(self):
         client = self.session.client("s3")
 
-        new_metadata_hash = self._get_metadata_hash()
+        stripped_metadata = _strip_dict(self.metadata)
+        new_metadata_hash = _hash_dict(stripped_metadata)
         if new_metadata_hash == self._metadata_hash:
             log.debug("No changes to metadata file. Skipping save()")
             return
@@ -96,7 +92,7 @@ class Metadata:
             StreamWriter = codecs.getwriter("utf-8")
 
             with io.BytesIO() as buf:
-                json.dump(self.metadata, StreamWriter(buf))
+                json.dump(stripped_metadata, StreamWriter(buf))
                 buf.seek(0)
                 client.upload_fileobj(
                     Fileobj=buf,
@@ -145,3 +141,20 @@ class Metadata:
 
     def __setitem__(self, key: str, value: dict):
         self.metadata[key] = value
+
+
+def _hash_dict(obj: dict) -> str:
+    return hashlib.md5(
+        json.dumps(obj, sort_keys=True).encode(),
+    ).hexdigest()
+
+
+def _strip_dict(obj):
+    if isinstance(obj, dict):
+        return {
+            # ruff hint
+            k: stripped_v
+            for k, v in obj.items()
+            if (stripped_v := _strip_dict(v))
+        }
+    return obj
