@@ -13,3 +13,7 @@ TOX_INIS := $(PACKAGES:%=%/tox.ini)
 .PHONY: tests
 tests: $(TOX_INIS)
 	ss=0; $(foreach package,$(PACKAGES),cd $(package) && tox || ss=1;cd ..;) exit $$ss
+
+.PHONY: ctorm-test
+ctorm-test:
+	cd ctorm && tox -c pyproject.toml
