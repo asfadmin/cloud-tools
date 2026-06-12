@@ -1,0 +1,31 @@
+[project]
+name = "ctorm"
+version = "0.1.0"
+description = "Load tester for cumulus"
+readme = "README.md"
+authors = [
+    { name = "Ben Barton", email = "bbarton@alaska.edu" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.43.26",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.5.1",
+    "boto3-stubs>=1.43.27",
+    "mypy-boto3-s3>=1.43.14",
+    "pytest>=8.0.0",
+    "ruff>=0.15.13",
+]
+
+[project.scripts]
+ctorm = "ctorm.main:main"
+
+[build-system]
+requires = ["uv_build>=0.10.3,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

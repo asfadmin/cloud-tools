@@ -1,0 +1,16 @@
+[ctorm]
+
+granules_sqs_queue_url = "https://sqs.us-west-2.amazonaws.com/123456789012/ctorm-dev-granules"
+
+[[ ctorm.source_buckets ]]
+bucketname = "nisar-bucket-0"
+ummg_prefix = "UMMG/FOO_COLLECTION/"
+share = 50
+[[ctorm.source_buckets]]
+bucketname = "nisar-bucket-2"
+ummg_prefix = "UMMG/BAR_COLLECTION/"
+share = 45
+[[ctorm.source_buckets]]
+bucketname = "opera-bucket-0"
+ummg_prefix = "UMMG/BAZ_COLLECTION/"
+share = 5
