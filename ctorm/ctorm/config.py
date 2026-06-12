@@ -1,14 +1,10 @@
-import argparse
-from collections.abc import Mapping
-from dataclasses import MISSING, dataclass, field, fields, replace
-from typing import Optional, Union
-
 import tomllib
+from dataclasses import dataclass, fields
 
 try:
     from typing import Self
 except ImportError:
-    Self = "ConfigBase"
+    Self = "CtormConfig"
 
 DEFAULT = "default"
 

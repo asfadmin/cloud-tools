@@ -4,15 +4,12 @@ A script for load testing cumulus.
 """
 
 import argparse
-import json
 import logging
-import os
 import sys
-from importlib.metadata import Distribution, PackageNotFoundError
 from typing import Optional
 
 from ctorm.config import CtormConfig
-from ctorm.prepare import prepare
+from ctorm.prepare import CtormPrepare
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +73,8 @@ def main(args: Optional[list[str]] = None):
         cfg = CtormConfig.from_file(
             cfg_file=pargs.cfg_file,
         )
-        prepare(cfg)
+        prepare = CtormPrepare(cfg)
+        prepare.prepare()
 
     except Exception:
         log.exception("")
