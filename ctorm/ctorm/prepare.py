@@ -2,21 +2,21 @@ import hashlib
 import json
 import os
 import re
+from enum import StrEnum
 from functools import cache
 from logging import getLogger
 
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_s3.type_defs import HeadObjectRequestTypeDef, ListObjectsV2OutputTypeDef
+from mypy_boto3_s3.type_defs import ListObjectsV2OutputTypeDef
 
-from ctorm.config import CtormBucket, CtormConfig
+from ctorm.config import AWS_REGION, CtormBucket, CtormConfig
 
 log = getLogger(__name__)
 
 
 @cache
 def get_boto_session():
-
     kwargs = {"region_name": AWS_REGION}
     if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
         kwargs["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
@@ -33,6 +33,22 @@ def get_s3_client():
 @cache
 def get_sqs_client():
     return get_boto_session().client("sqs", region_name=AWS_REGION)
+
+
+class K(StrEnum):
+    """Since we want to keep the message json as light as possible, we'll keep
+    the keys for the message sent to the CTORM SQS queue here.
+    """
+
+    BKT_MAP = "bm"
+    GRANULE = "g"
+    COLLECTION = "c"
+    COLLECTION_VERSION = "cv"
+    FILES = "f"
+    MD5 = "m"
+    SIZE = "s"
+
+
 class CtormSqsMessage:
     MAX_MESSAGE_SIZE = 262144
 
@@ -58,13 +74,6 @@ class CtormPrepare:
 
     def __init__(self, cfg: CtormConfig):
         self.cfg = cfg
-        self.boto_session = boto3.Session(
-            region_name="us-west-2",
-            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        )
-        self.s3_client = self.boto_session.client("s3")
-        self.sqs_client = self.boto_session.client("sqs")
 
     def prepare(self):
         goal = 50
@@ -122,52 +131,53 @@ class CtormPrepare:
 
     def process_ummg(self, ummg: dict, ct_bkt: CtormBucket) -> dict:
         outdict = {
-            "bm": {ct_bkt.bucketname: "B1"},  # bucket map
-            "g": ummg["GranuleUR"],
-            "c": ummg["CollectionReference"]["ShortName"],
-            "cv": ummg["CollectionReference"]["Version"],
-            "f": [],  # list of files
+            K.BKT_MAP: {ct_bkt.bucketname: "B1"},  # bucket map
+            K.GRANULE: ummg["GranuleUR"],
+            K.COLLECTION: ummg["CollectionReference"]["ShortName"],
+            K.COLLECTION_VERSION: ummg["CollectionReference"]["Version"],
+            K.FILES: [],  # list of files
         }
 
-        for f in ummg["RelatedUrls"]:
-            if f["URL"].startswith("s3://"):
-                bucket = re.sub(r"^s3://([^/]+).*$", r"\1", f["URL"])
+        for r_urls in ummg["RelatedUrls"]:
+            if r_urls["URL"].startswith("s3://"):
+                bucket = re.sub(r"^s3://([^/]+).*$", r"\1", r_urls["URL"])
                 if bucket != ct_bkt.bucketname:
-                    outdict["bm"][bucket] = f"B{len(outdict['bm'])}"
-                objloc = f["URL"].removeprefix(f"s3://{bucket}/")
+                    outdict[K.BKT_MAP][bucket] = f"B{len(outdict[K.BKT_MAP])}"
+                objloc = r_urls["URL"].removeprefix(f"s3://{bucket}/")
 
                 # Replace the granulename with a token for compression. Will reconstitute in the lambda
-                fileval = f["URL"].replace(outdict["g"], "$G").replace(bucket, f"${outdict['bm'][bucket]}")
+                fileval = (
+                    r_urls["URL"].replace(outdict[K.GRANULE], "$G").replace(bucket, f"${outdict[K.BKT_MAP][bucket]}")
+                )
                 filedict = {"f": fileval}
-                for m in ummg["DataGranule"]["ArchiveAndDistributionInformation"]:
-                    if f["URL"].endswith(m["Name"]):
+                for distr_file in ummg["DataGranule"]["ArchiveAndDistributionInformation"]:
+                    if r_urls["URL"].endswith(distr_file["Name"]):
                         # We handily have the md5 and size in the ummg
-                        filedict["m"] = m["Checksum"]["Value"]
-                        filedict["s"] = m["SizeInBytes"]
+                        filedict[K.MD5] = distr_file["Checksum"]["Value"]
+                        filedict[K.SIZE] = distr_file["SizeInBytes"]
                         break
                     else:
                         # We must look to S3 for the size and md5
                         log.debug('getting head for "%s"', objloc)
                         try:
-                            log.debug("head_object: %s", h)
-                            filedict["s"] = h["ContentLength"]
-                            filedict["m"] = h["ETag"].replace('"', "")
-                            if filedict["m"].endswith("-1"):
                             headobj = get_s3_client().head_object(Bucket=bucket, Key=objloc)
+                            log.debug("head_object: %s", headobj)
+                            filedict[K.SIZE] = headobj["ContentLength"]
+                            filedict[K.MD5] = headobj["ETag"].replace('"', "")
+                            if filedict[K.MD5].endswith("-1"):
                                 # This was a multipart upload. We'll have to do something clever to get the MD5 of it.
                                 log.debug("multipart upload detected for %s", objloc)
-                                filedict["m"] = self.get_real_md5(h, bucket, objloc)
+                                filedict[K.MD5] = self.get_real_md5(bucket, objloc)
                         except ClientError as e:
                             log.error("head_object failed: %s", e)
                             # TODO: trash entire message for this granule?
 
-                outdict["f"].append(filedict)
+                outdict[K.FILES].append(filedict)
 
         return outdict
 
     def get_real_md5(
         self,
-        head_obj_ret: HeadObjectRequestTypeDef,
         bucket: str,
         key: str,
     ) -> str:

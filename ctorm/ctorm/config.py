@@ -7,10 +7,7 @@ except ImportError:
     Self = "CtormConfig"
 
 DEFAULT = "default"
-
-
-class ConfigError(Exception):
-    pass
+AWS_REGION = "us-west-2"  # We will never not want us-west-2
 
 
 @dataclass
@@ -37,7 +34,7 @@ class CtormConfig:
         if "ctorm" in cfg:
             cfg = cfg["ctorm"]
         else:
-            raise ConfigError("No 'ctorm' section in config file")
+            raise KeyError("No 'ctorm' section in config file")
         valid_fields = {f.name for f in fields(cls)}
         # Filter the input dictionary
         kwargs = {k: v for k, v in cfg.items() if k in valid_fields}
