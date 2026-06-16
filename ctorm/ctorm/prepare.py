@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+from functools import cache
 from logging import getLogger
 
 import boto3
@@ -13,6 +14,25 @@ from ctorm.config import CtormBucket, CtormConfig
 log = getLogger(__name__)
 
 
+@cache
+def get_boto_session():
+
+    kwargs = {"region_name": AWS_REGION}
+    if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
+        kwargs["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
+        kwargs["aws_secret_access_key"] = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+    return boto3.Session(**kwargs)
+
+
+@cache
+def get_s3_client():
+    return get_boto_session().client("s3", region_name=AWS_REGION)
+
+
+@cache
+def get_sqs_client():
+    return get_boto_session().client("sqs", region_name=AWS_REGION)
 class CtormSqsMessage:
     MAX_MESSAGE_SIZE = 262144
 
@@ -76,7 +96,7 @@ class CtormPrepare:
             log.debug("sqs_msg size OK?: %d", sqs_msg.check_message_size())
             if sqs_msg.check_message_size():
                 log.debug("sqs_msg: %s", sqs_msg.to_json())
-                self.sqs_client.send_message(
+                get_sqs_client().send_message(
                     QueueUrl=self.cfg.granules_sqs_queue_url,
                     MessageBody=sqs_msg.to_json(),
                 )
@@ -92,11 +112,11 @@ class CtormPrepare:
         }
         if ct_bukt.next_cont_token:
             kwargs["ContinuationToken"] = ct_bukt.next_cont_token
-        ret = self.s3_client.list_objects_v2(**kwargs)
+        ret = get_s3_client().list_objects_v2(**kwargs)
         return ret
 
     def download_ummg(self, bucketname: str, key: str) -> dict:
-        resp = self.s3_client.get_object(Bucket=bucketname, Key=key)
+        resp = get_s3_client().get_object(Bucket=bucketname, Key=key)
         ummgfile = resp["Body"].read()
         return json.loads(ummgfile)
 
@@ -129,11 +149,11 @@ class CtormPrepare:
                         # We must look to S3 for the size and md5
                         log.debug('getting head for "%s"', objloc)
                         try:
-                            h = self.s3_client.head_object(Bucket=bucket, Key=objloc)
                             log.debug("head_object: %s", h)
                             filedict["s"] = h["ContentLength"]
                             filedict["m"] = h["ETag"].replace('"', "")
                             if filedict["m"].endswith("-1"):
+                            headobj = get_s3_client().head_object(Bucket=bucket, Key=objloc)
                                 # This was a multipart upload. We'll have to do something clever to get the MD5 of it.
                                 log.debug("multipart upload detected for %s", objloc)
                                 filedict["m"] = self.get_real_md5(h, bucket, objloc)
@@ -152,7 +172,7 @@ class CtormPrepare:
         key: str,
     ) -> str:
         # The file is small enough we may as well download it to memory and get the MD5 that way.
-        resp = self.s3_client.get_object(Bucket=bucket, Key=key)
+        resp = get_s3_client().get_object(Bucket=bucket, Key=key)
         md5_accumulator = hashlib.md5()
         for chunk in iter(lambda: resp["Body"].read(self.MD5_DL_CHUNK_MB * 1024 * 1024), b""):
             md5_accumulator.update(chunk)
