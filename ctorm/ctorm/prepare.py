@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 import re
 from enum import StrEnum
 from functools import cache
@@ -16,23 +15,13 @@ log = getLogger(__name__)
 
 
 @cache
-def get_boto_session():
-    kwargs = {"region_name": AWS_REGION}
-    if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
-        kwargs["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
-        kwargs["aws_secret_access_key"] = os.getenv("AWS_SECRET_ACCESS_KEY")
-
-    return boto3.Session(**kwargs)
-
-
-@cache
 def get_s3_client():
-    return get_boto_session().client("s3", region_name=AWS_REGION)
+    return boto3.client("s3", region_name=AWS_REGION)
 
 
 @cache
 def get_sqs_client():
-    return get_boto_session().client("sqs", region_name=AWS_REGION)
+    return boto3.client("sqs", region_name=AWS_REGION)
 
 
 class K(StrEnum):

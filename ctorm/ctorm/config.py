@@ -1,5 +1,6 @@
-import tomllib
 from dataclasses import dataclass, fields
+
+import tomllib
 
 try:
     from typing import Self
@@ -31,13 +32,9 @@ class CtormConfig:
     ) -> Self:
         with open(cfg_file, "rb") as f:
             cfg = tomllib.load(f)
-        if "ctorm" in cfg:
-            cfg = cfg["ctorm"]
-        else:
-            raise KeyError("No 'ctorm' section in config file")
         valid_fields = {f.name for f in fields(cls)}
         # Filter the input dictionary
-        kwargs = {k: v for k, v in cfg.items() if k in valid_fields}
+        kwargs = {k: v for k, v in cfg["ctorm"].items() if k in valid_fields}
         # create CtormBuckets for each bucket in cfg['source_buckets']
         kwargs["source_buckets"] = [CtormBucket(**b) for b in kwargs["source_buckets"]]
         obj = cls(**kwargs)
