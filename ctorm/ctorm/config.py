@@ -1,6 +1,5 @@
-from dataclasses import dataclass, fields
-
 import tomllib
+from dataclasses import dataclass, fields
 
 try:
     from typing import Self
