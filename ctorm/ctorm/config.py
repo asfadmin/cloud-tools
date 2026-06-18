@@ -24,6 +24,9 @@ class CtormConfig:
     source_buckets: list
     granules_sqs_queue_url: str
 
+    # This is the number of granules that will be prepared for test.
+    granule_goal: int = 2000000
+
     @classmethod
     def from_file(
         cls,

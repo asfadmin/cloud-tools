@@ -63,10 +63,10 @@ class CtormPrepare:
 
     def __init__(self, cfg: CtormConfig):
         self.cfg = cfg
+        self.total_granules = 0
 
     def prepare(self):
-        goal = 50
-        while goal > 0:  # TODO: replace with while true and an exit condition
+        while self.total_granules < self.cfg.granule_goal:
             # This is the loop that creates a SQS message from multiple objects.
             sqs_msg = CtormSqsMessage(self.cfg)
             for b in self.cfg.source_buckets:
@@ -86,10 +86,10 @@ class CtormPrepare:
                     file = self.process_ummg(ummg, b)
                     if file:
                         sqs_msg.add_file(file)
-                    goal -= 1
+                    self.total_granules += 1
                 b.next_cont_token = page.get("NextContinuationToken")
 
-            log.debug("goal: %d", goal)
+            log.debug("tot granules: %d/%d", self.total_granules, self.cfg.granule_goal)
             log.debug("sqs_msg size: %d", len(sqs_msg.to_json()))
             log.debug("sqs_msg size OK?: %d", sqs_msg.check_message_size())
             if sqs_msg.check_message_size():
