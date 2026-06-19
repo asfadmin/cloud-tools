@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import re
 from enum import StrEnum
 from functools import cache
@@ -12,11 +13,6 @@ from mypy_boto3_s3.type_defs import ListObjectsV2OutputTypeDef
 from ctorm.config import AWS_REGION, CtormBucket, CtormConfig
 
 log = getLogger(__name__)
-
-
-@cache
-def get_s3_client():
-    return boto3.client("s3", region_name=AWS_REGION)
 
 
 @cache
@@ -65,6 +61,20 @@ class CtormPrepare:
         self.cfg = cfg
         self.total_granules = 0
 
+        self._boto_sessions = {}
+
+        # init buckets
+        for bkt in self.cfg.source_buckets:
+            bkt.next_cont_token = None
+            keysuffix = f"_{bkt.keypair_name}" if bkt.keypair_name else ""
+            if bkt.keypair_name not in self._boto_sessions:
+                self._boto_sessions[bkt.keypair_name] = boto3.Session(
+                    region_name=AWS_REGION,
+                    aws_access_key_id=os.getenv(f"AWS_ACCESS_KEY_ID{keysuffix}"),
+                    aws_secret_access_key=os.getenv(f"AWS_SECRET_ACCESS_KEY{keysuffix}"),
+                )
+            bkt.s3_client = self._boto_sessions[bkt.keypair_name].client("s3")
+
     def prepare(self):
         while self.total_granules < self.cfg.granule_goal:
             # This is the loop that creates a SQS message from multiple objects.
@@ -82,7 +92,7 @@ class CtormPrepare:
                         continue
                     log.debug("  %s", obj["Key"])
                     # download the json object and load it into a var:
-                    ummg = self.download_ummg(b.bucketname, obj["Key"])
+                    ummg = self.download_ummg(b, obj["Key"])
                     file = self.process_ummg(ummg, b)
                     if file:
                         sqs_msg.add_file(file)
@@ -91,6 +101,7 @@ class CtormPrepare:
 
             log.debug("tot granules: %d/%d", self.total_granules, self.cfg.granule_goal)
             log.debug("sqs_msg size: %d", len(sqs_msg.to_json()))
+            log.debug("sqs message percentage: %d%%", (len(sqs_msg.to_json()) / CtormSqsMessage.MAX_MESSAGE_SIZE) * 100)
             log.debug("sqs_msg size OK?: %d", sqs_msg.check_message_size())
             if sqs_msg.check_message_size():
                 log.debug("sqs_msg: %s", sqs_msg.to_json())
@@ -110,11 +121,11 @@ class CtormPrepare:
         }
         if ct_bukt.next_cont_token:
             kwargs["ContinuationToken"] = ct_bukt.next_cont_token
-        ret = get_s3_client().list_objects_v2(**kwargs)
+        ret = ct_bukt.s3_client.list_objects_v2(**kwargs)
         return ret
 
-    def download_ummg(self, bucketname: str, key: str) -> dict:
-        resp = get_s3_client().get_object(Bucket=bucketname, Key=key)
+    def download_ummg(self, b: CtormBucket, key: str) -> dict:
+        resp = b.s3_client.get_object(Bucket=b.bucketname, Key=key)
         ummgfile = resp["Body"].read()
         return json.loads(ummgfile)
 
@@ -149,14 +160,14 @@ class CtormPrepare:
                         # We must look to S3 for the size and md5
                         log.debug('getting head for "%s"', objloc)
                         try:
-                            headobj = get_s3_client().head_object(Bucket=bucket, Key=objloc)
+                            headobj = ct_bkt.s3_client.head_object(Bucket=bucket, Key=objloc)
                             log.debug("head_object: %s", headobj)
                             filedict[K.SIZE] = headobj["ContentLength"]
                             filedict[K.MD5] = headobj["ETag"].replace('"', "")
                             if filedict[K.MD5].endswith("-1"):
                                 # This was a multipart upload. We'll have to do something clever to get the MD5 of it.
                                 log.debug("multipart upload detected for %s", objloc)
-                                filedict[K.MD5] = self.get_real_md5(bucket, objloc)
+                                filedict[K.MD5] = self.get_real_md5(ct_bkt, bucket, objloc)
                         except ClientError as e:
                             log.error("head_object failed: %s", e)
                             # TODO: trash entire message for this granule?
@@ -167,11 +178,12 @@ class CtormPrepare:
 
     def get_real_md5(
         self,
-        bucket: str,
+        b: CtormBucket,
+        obj_bucket: str,
         key: str,
     ) -> str:
         # The file is small enough we may as well download it to memory and get the MD5 that way.
-        resp = get_s3_client().get_object(Bucket=bucket, Key=key)
+        resp = b.s3_client.get_object(Bucket=obj_bucket, Key=key)
         md5_accumulator = hashlib.md5()
         for chunk in iter(lambda: resp["Body"].read(self.MD5_DL_CHUNK_MB * 1024 * 1024), b""):
             md5_accumulator.update(chunk)

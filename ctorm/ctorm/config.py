@@ -1,6 +1,9 @@
 import tomllib
 from dataclasses import dataclass, fields
 
+from boto3.session import Session
+from mypy_boto3_s3 import S3Client
+
 try:
     from typing import Self
 except ImportError:
@@ -13,9 +16,12 @@ AWS_REGION = "us-west-2"  # We will never not want us-west-2
 @dataclass
 class CtormBucket:
     bucketname: str
+    keypair_name: str  # Looks for a keypair in the form of `AWS_ACCESS_KEY_ID_[keypair_name]`
     share: int = ""
 
     next_cont_token: str = None
+    s3_client: S3Client = None
+    session: Session = None
     ummg_prefix: str = "UMMG/"
 
 

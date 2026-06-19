@@ -4,13 +4,16 @@ granules_sqs_queue_url = "https://sqs.us-west-2.amazonaws.com/123456789012/ctorm
 
 [[ ctorm.source_buckets ]]
 bucketname = "nisar-bucket-0"
-ummg_prefix = "UMMG/FOO_COLLECTION/"
 share = 50
+ummg_prefix = "UMMG/FOO_COLLECTION/"
+keypair_name = "NISAR"
 [[ctorm.source_buckets]]
 bucketname = "nisar-bucket-2"
-ummg_prefix = "UMMG/BAR_COLLECTION/"
+keypair_name = "NISAR"
 share = 45
+ummg_prefix = "UMMG/BAR_COLLECTION/"
 [[ctorm.source_buckets]]
 bucketname = "opera-bucket-0"
-ummg_prefix = "UMMG/BAZ_COLLECTION/"
+keypair_name = "OPERA"
 share = 5
+ummg_prefix = "UMMG/BAZ_COLLECTION/"
