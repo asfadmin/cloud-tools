@@ -10,7 +10,7 @@ import boto3
 from botocore.exceptions import ClientError
 from mypy_boto3_s3.type_defs import ListObjectsV2OutputTypeDef
 
-from ctorm.config import AWS_REGION, CtormBucket, CtormConfig
+from ctorm.config import AWS_REGION, CtormConfig, CtormPipeline
 
 log = getLogger(__name__)
 
@@ -64,22 +64,22 @@ class CtormPrepare:
         self._boto_sessions = {}
 
         # init buckets
-        for bkt in self.cfg.source_buckets:
+        for bkt in self.cfg.pipelines:
             bkt.next_cont_token = None
-            keysuffix = f"_{bkt.keypair_name}" if bkt.keypair_name else ""
-            if bkt.keypair_name not in self._boto_sessions:
-                self._boto_sessions[bkt.keypair_name] = boto3.Session(
+            keysuffix = f"_{bkt.prepare_keypair_name}" if bkt.prepare_keypair_name else ""
+            if bkt.prepare_keypair_name not in self._boto_sessions:
+                self._boto_sessions[bkt.prepare_keypair_name] = boto3.Session(
                     region_name=AWS_REGION,
                     aws_access_key_id=os.getenv(f"AWS_ACCESS_KEY_ID{keysuffix}"),
                     aws_secret_access_key=os.getenv(f"AWS_SECRET_ACCESS_KEY{keysuffix}"),
                 )
-            bkt.s3_client = self._boto_sessions[bkt.keypair_name].client("s3")
+            bkt.s3_client = self._boto_sessions[bkt.prepare_keypair_name].client("s3")
 
     def prepare(self):
         while self.total_granules < self.cfg.granule_goal:
             # This is the loop that creates a SQS message from multiple objects.
             sqs_msg = CtormSqsMessage(self.cfg)
-            for b in self.cfg.source_buckets:
+            for b in self.cfg.pipelines:
                 # This is the loop that goes into each bucket we're interested in.
                 log.debug("getting objects from %s", b.bucketname)
 
@@ -113,7 +113,7 @@ class CtormPrepare:
                 raise Exception("Message too big")
                 # TODO: deal with this smarter
 
-    def get_ummg_page(self, ct_bukt: CtormBucket) -> ListObjectsV2OutputTypeDef:
+    def get_ummg_page(self, ct_bukt: CtormPipeline) -> ListObjectsV2OutputTypeDef:
         kwargs = {
             "Bucket": ct_bukt.bucketname,
             "MaxKeys": ct_bukt.share,
@@ -124,12 +124,12 @@ class CtormPrepare:
         ret = ct_bukt.s3_client.list_objects_v2(**kwargs)
         return ret
 
-    def download_ummg(self, b: CtormBucket, key: str) -> dict:
+    def download_ummg(self, b: CtormPipeline, key: str) -> dict:
         resp = b.s3_client.get_object(Bucket=b.bucketname, Key=key)
         ummgfile = resp["Body"].read()
         return json.loads(ummgfile)
 
-    def process_ummg(self, ummg: dict, ct_bkt: CtormBucket) -> dict:
+    def process_ummg(self, ummg: dict, ct_bkt: CtormPipeline) -> dict:
         outdict = {
             K.BKT_MAP: {ct_bkt.bucketname: "B1"},  # bucket map
             K.GRANULE: ummg["GranuleUR"],
@@ -178,7 +178,7 @@ class CtormPrepare:
 
     def get_real_md5(
         self,
-        b: CtormBucket,
+        b: CtormPipeline,
         obj_bucket: str,
         key: str,
     ) -> str:

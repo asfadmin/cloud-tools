@@ -2,18 +2,29 @@
 
 granules_sqs_queue_url = "https://sqs.us-west-2.amazonaws.com/123456789012/ctorm-dev-granules"
 
-[[ ctorm.source_buckets ]]
+[[ ctorm.pipelines ]]
 bucketname = "nisar-bucket-0"
+ingest_keypair_name = ""
+ingest_queue_name = "sds-n-cumulus-test-nisar-workflow-queue"
+ingest_sqs_queue_url = ""
 share = 50
 ummg_prefix = "UMMG/FOO_COLLECTION/"
-keypair_name = "NISAR"
-[[ctorm.source_buckets]]
+prepare_keypair_name = "NISAR_P"
+
+[[ctorm.pipelines]]
 bucketname = "nisar-bucket-2"
-keypair_name = "NISAR"
+ingest_keypair_name = ""
+ingest_queue_name = "sds-n-cumulus-test-nisar-workflow-queue"
+ingest_sqs_queue_url = ""
+prepare_keypair_name = "NISAR"
 share = 45
 ummg_prefix = "UMMG/BAR_COLLECTION/"
-[[ctorm.source_buckets]]
+
+[[ctorm.pipelines]]
 bucketname = "opera-bucket-0"
-keypair_name = "OPERA"
+ingest_keypair_name = ""
+ingest_queue_name = "asf-cumulus-test-opera-workflow-queue"
+ingest_sqs_queue_url = ""
+prepare_keypair_name = "OPERA"
 share = 5
 ummg_prefix = "UMMG/BAZ_COLLECTION/"

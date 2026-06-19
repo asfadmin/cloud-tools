@@ -1,10 +1,10 @@
 from unittest.mock import mock_open, patch
 
-from ctorm.config import ConfigError, CtormBucket, CtormConfig
+from ctorm.config import ConfigError, CtormConfig, CtormPipeline
 
 
 def test_ctorm_bucket_initialization():
-    bucket = CtormBucket(bucketname="test_bucket", share=50, ummg_prefix="test_prefix/")
+    bucket = CtormPipeline(bucketname="test_bucket", share=50, ummg_prefix="test_prefix/")
 
     assert bucket.bucketname == "test_bucket"
     assert bucket.share == 50
@@ -29,7 +29,7 @@ def test_ctorm_config_from_file_success():
 
         assert config.granules_sqs_queue_url == "https://sqs.queue.url/"
         assert len(config.source_buckets) == 1
-        assert isinstance(config.source_buckets[0], CtormBucket)
+        assert isinstance(config.source_buckets[0], CtormPipeline)
         assert config.source_buckets[0].bucketname == "test_bucket"
 
 
