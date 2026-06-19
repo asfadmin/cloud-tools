@@ -1,10 +1,12 @@
 from unittest.mock import mock_open, patch
 
-from ctorm.config import ConfigError, CtormConfig, CtormPipeline
+from ctorm.config import CtormConfig, CtormPipeline
 
 
 def test_ctorm_bucket_initialization():
-    bucket = CtormPipeline(bucketname="test_bucket", share=50, ummg_prefix="test_prefix/")
+    bucket = CtormPipeline(
+        bucketname="test_bucket", share=50, ummg_prefix="test_prefix/"
+    )
 
     assert bucket.bucketname == "test_bucket"
     assert bucket.share == 50
@@ -18,7 +20,10 @@ def test_ctorm_config_from_file_success():
     source_buckets = [{"bucketname": "test_bucket", "share": 50}]
     granules_sqs_queue_url = "https://sqs.queue.url/"
     """
-    with patch("builtins.open", mock_open(read_data=mock_data)), patch("tomllib.load") as mock_toml:
+    with (
+        patch("builtins.open", mock_open(read_data=mock_data)),
+        patch("tomllib.load") as mock_toml,
+    ):
         mock_toml.return_value = {
             "ctorm": {
                 "source_buckets": [{"bucketname": "test_bucket", "share": 50}],
@@ -35,9 +40,12 @@ def test_ctorm_config_from_file_success():
 
 def test_ctorm_config_from_file_missing_section():
     mock_data = "{}"
-    with patch("builtins.open", mock_open(read_data=mock_data)), patch("tomllib.load") as mock_toml:
+    with (
+        patch("builtins.open", mock_open(read_data=mock_data)),
+        patch("tomllib.load") as mock_toml,
+    ):
         mock_toml.return_value = {}
         try:
             CtormConfig.from_file("test.cfg")
-        except ConfigError as e:
+        except KeyError as e:
             assert str(e) == "No 'ctorm' section in config file"

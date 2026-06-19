@@ -1,9 +1,25 @@
+import json
 import logging
 import os
+from typing import List
 
+from aws_lambda_typing import context as context_
+from aws_lambda_typing import events
 from cnm_sender import CnmSender
 
+from ctorm.config import (
+    CtormConfig,
+    CtormPreparedGranule,
+)
+
 log = logging.getLogger(__name__)
+
+
+def configure_cfg():
+    cfg = CtormConfig.from_file(
+        cfg_file=os.getenv("CFG_FILE", "./ctorm.cfg"),
+    )
+    return cfg
 
 
 def configure_logging() -> None:
@@ -21,17 +37,20 @@ def configure_logging() -> None:
     for handler in root_logger.handlers:
         handler.setLevel(level)
         handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(name)s %(filename)s:%(lineno)d - %(message)s")
+            logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s %(filename)s:%(lineno)d - %(message)s"
+            )
         )
 
 
-def load_test():
-    c_sender = CnmSender({})
-    c_sender.send()
+def load_test(cfg: CtormConfig, granule_list: List[CtormPreparedGranule]):
+    c_sender = CnmSender(cfg, granule_list)
+    c_sender.send_all()
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: events.EventBridgeEvent, context: context_.Context):
     configure_logging()
+    cfg = configure_cfg()
 
     log.info(
         "Starting CNM sender invocation",
@@ -42,8 +61,9 @@ def lambda_handler(event, context):
 
     try:
         log.debug("Received event: %s", event)
-
-        load_test()
+        g_list = event["Records"].pop().get("body")
+        g_list = json.loads(g_list).get("granules")
+        load_test(cfg, g_list)
 
         log.info("CNM sender invocation completed")
         return {"ok": True}
@@ -54,5 +74,4 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
-    configure_logging()
     lambda_handler({}, {})

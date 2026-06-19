@@ -87,7 +87,9 @@ def main(args: Optional[list[str]] = None):
         botocore_logger.setLevel(logging.DEBUG)
 
     base_fmt_str = "%(levelname)s: %(message)s (%(filename)s line %(lineno)d/)"
-    screen_fmt = logging.Formatter("%(asctime)s.%(msecs)d " + base_fmt_str, "%Y-%m-%dT%H:%M:%S")
+    screen_fmt = logging.Formatter(
+        "%(asctime)s.%(msecs)d " + base_fmt_str, "%Y-%m-%dT%H:%M:%S"
+    )
     screenlog = logging.StreamHandler()
     screenlog.setFormatter(screen_fmt)
     root_logger.addHandler(screenlog)

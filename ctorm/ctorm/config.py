@@ -1,6 +1,8 @@
-from dataclasses import dataclass, fields
-
+import re
 import tomllib
+from dataclasses import dataclass, fields
+from typing import NotRequired, TypedDict
+
 from boto3.session import Session
 from mypy_boto3_s3 import S3Client
 
@@ -11,6 +13,21 @@ except ImportError:
 
 DEFAULT = "default"
 AWS_REGION = "us-west-2"  # We will never not want us-west-2
+MD5_CHECKSUM_PATTERN = re.compile(r"^([\da-f]{32})$")
+
+
+class CtormPreparedFile(TypedDict):
+    f: str
+    m: NotRequired[str]
+    s: int
+
+
+class CtormPreparedGranule(TypedDict):
+    bm: dict[str, str]
+    g: str
+    c: str
+    cv: str
+    f: list[CtormPreparedFile]
 
 
 @dataclass
@@ -33,12 +50,15 @@ class CtormPipeline:
     s3_client: S3Client = None
     session: Session = None
     ummg_prefix: str = "UMMG/"
+    provider: str = "TODO"
 
 
 @dataclass
 class CtormConfig:
     pipelines: list
     granules_sqs_queue_url: str
+
+    calc_md5: bool = True
 
     # This is the number of granules that will be prepared for test.
     granule_goal: int = 2000000
