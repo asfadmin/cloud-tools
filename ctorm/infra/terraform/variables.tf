@@ -18,3 +18,16 @@ variable "cumulus_ingest_queue_url" {
   type        = string
   description = "URL of the target Cumulus ingest SQS queue."
 }
+
+variable "prepare_source_bucket_names" {
+  type        = list(string)
+  description = "S3 bucket names that ctorm prepare is allowed to read from."
+  default = [
+    "asf-cumulus-dev-opera-products",
+    "asf-cumulus-prod-opera-products",
+    "asf-cumulus-test-opera-products",
+    "sds-n-cumulus-dev-nisar-products",
+    "sds-n-cumulus-prod-nisar-products",
+    "sds-n-cumulus-test-nisar-products",
+  ]
+}

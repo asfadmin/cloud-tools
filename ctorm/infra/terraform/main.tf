@@ -186,3 +186,96 @@ resource "aws_lambda_permission" "allow_eventbridge" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.every_minute.arn
 }
+
+
+data "aws_iam_policy_document" "prepare_ec2_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "prepare_ec2" {
+  name               = "${var.name_prefix}-prepare-ec2-role"
+  assume_role_policy = data.aws_iam_policy_document.prepare_ec2_assume_role.json
+}
+
+data "aws_iam_policy_document" "prepare_ec2" {
+  statement {
+    actions = [
+      "sqs:SendMessage",
+      "sqs:GetQueueAttributes"
+    ]
+
+    resources = [
+      aws_sqs_queue.granules.arn
+    ]
+  }
+
+  statement {
+    actions = [
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      for bucket_name in var.prepare_source_bucket_names : "arn:aws:s3:::${bucket_name}"
+    ]
+  }
+
+  statement {
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      for bucket_name in var.prepare_source_bucket_names : "arn:aws:s3:::${bucket_name}/*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "prepare_ec2" {
+  name   = "${var.name_prefix}-prepare-ec2-policy"
+  role   = aws_iam_role.prepare_ec2.id
+  policy = data.aws_iam_policy_document.prepare_ec2.json
+}
+
+resource "aws_iam_instance_profile" "prepare_ec2" {
+  name = "${var.name_prefix}-prepare-ec2-profile"
+  role = aws_iam_role.prepare_ec2.name
+}
+
+
+
+resource "aws_s3_bucket" "scratch" {
+  bucket = "${var.name_prefix}-scratch"
+
+  tags = {
+    Name = "${var.name_prefix}-scratch"
+  }
+}
+
+data "aws_iam_policy_document" "allow_scratch_bucket_access" {
+  statement {
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:ListBucket",
+      "s3:DeleteObject"
+    ]
+
+    resources = [
+      aws_s3_bucket.scratch.arn,
+      "${aws_s3_bucket.scratch.arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "scratch_bucket_access" {
+  name   = "${var.name_prefix}-scratch-access"
+  role   = aws_iam_role.cnm-sender.id # assumes this role already exists
+  policy = data.aws_iam_policy_document.allow_scratch_bucket_access.json
+}
