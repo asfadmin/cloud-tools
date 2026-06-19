@@ -123,7 +123,7 @@ data "archive_file" "placeholder_lambda" {
 import json
 import os
 
-def handler(event, context):
+def lambda_handler(event, context):
     print(json.dumps({
         "event": event,
         "granules_queue_url": os.environ.get("GRANULES_QUEUE_URL"),
@@ -142,7 +142,7 @@ resource "aws_lambda_function" "cnm-sender" {
   function_name = local.lambda_name
   role          = aws_iam_role.cnm-sender.arn
   runtime       = "python3.12"
-  handler       = "index.handler"
+  handler       = "load_tester.lambda_handler"
 
   filename         = data.archive_file.placeholder_lambda.output_path
   source_code_hash = data.archive_file.placeholder_lambda.output_base64sha256
@@ -155,6 +155,7 @@ resource "aws_lambda_function" "cnm-sender" {
       GRANULES_QUEUE_URL       = aws_sqs_queue.granules.url
       TABLE_NAME               = aws_dynamodb_table.state.name
       CUMULUS_INGEST_QUEUE_URL = var.cumulus_ingest_queue_url
+      LOG_LEVEL                = "INFO"
     }
   }
 
