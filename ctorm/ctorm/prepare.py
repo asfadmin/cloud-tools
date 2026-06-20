@@ -10,7 +10,7 @@ import boto3
 from botocore.exceptions import ClientError
 from mypy_boto3_s3.type_defs import ListObjectsV2OutputTypeDef
 
-from ctorm.config import AWS_REGION, CtormConfig, CtormPipeline
+from ctorm.config import AWS_REGION, MD5_CHECKSUM_PATTERN, CtormConfig, CtormPipeline
 
 log = getLogger(__name__)
 
@@ -164,8 +164,9 @@ class CtormPrepare:
                 ]:
                     if r_urls["URL"].endswith(distr_file["Name"]):
                         # We handily have the md5 and size in the ummg
-                        filedict[K.MD5] = distr_file["Checksum"]["Value"]
+                        # TODO: double-check this test is correct and we're not unnecessarily HEADing too many files.
                         filedict[K.SIZE] = distr_file["SizeInBytes"]
+                        filedict[K.MD5] = distr_file["Checksum"]["Value"]
                         break
                     else:
                         # We must look to S3 for the size and md5
@@ -176,17 +177,17 @@ class CtormPrepare:
                             )
                             log.debug("head_object: %s", headobj)
                             filedict[K.SIZE] = headobj["ContentLength"]
-                            filedict[K.MD5] = headobj["ETag"].replace('"', "")
-                            if filedict[K.MD5].endswith("-1"):
-                                # This was a multipart upload. We'll have to do something clever to get the MD5 of it.
 
-                                if self.cfg.calc_md5:
-                                    log.debug(
-                                        "multipart upload detected for %s", objloc
-                                    )
-                                    filedict[K.MD5] = self.get_real_md5(
-                                        ct_bkt, bucket, objloc
-                                    )
+                            md5 = headobj["ETag"].replace('"', "")
+                            if MD5_CHECKSUM_PATTERN.fullmatch(md5):
+                                filedict[K.MD5] = md5
+                            elif self.cfg.calc_md5:
+                                log.debug("multipart upload detected for %s", objloc)
+                                filedict[K.MD5] = self.get_real_md5(
+                                    ct_bkt, bucket, objloc
+                                )
+                            else:
+                                log.debug("no need to calculate md5 for %s", objloc)
                         except ClientError as e:
                             log.error("head_object failed: %s", e)
                             # TODO: trash entire message for this granule?

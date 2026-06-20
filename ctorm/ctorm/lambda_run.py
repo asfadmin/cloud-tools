@@ -5,6 +5,8 @@ Emulates a lambda for local dev.
 import json
 import logging
 
+from aws_lambda_typing import context as context_
+
 from ctorm.load_tester import lambda_handler
 
 log = logging.getLogger()
@@ -19,14 +21,15 @@ log.addHandler(screenlog)
 
 
 # mock event data
-with open("../../data/lambda_event.json", "r") as f:
+with open("../../data/lambda-event-eventbridge.json", "r") as f:
     mock_event = json.load(f)
 
 
 # Mock context object
-class MockContext:
+class MockContext(context_.Context):
     function_name = "local_test"
     memory_limit_in_mb = 128
+    aws_request_id = "LOLOCAL"
 
 
 # Run it

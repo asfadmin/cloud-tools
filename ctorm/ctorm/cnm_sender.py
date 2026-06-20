@@ -19,7 +19,11 @@ class CnmSender:
         self.provider = provider
         self.cnm_s_generator = CtormCnmSGenerator()
 
-    def send_all(self):
+    def send_all(self) -> bool:
         for granule in self.granules:
             cnms = self.cnm_s_generator(granule, self.provider)
             log.debug("Sending %s", cnms)
+            # TODO: actually send
+
+        # TODO: determine successfulllness
+        return True

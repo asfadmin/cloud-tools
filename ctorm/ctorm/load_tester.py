@@ -1,13 +1,16 @@
 import json
 import logging
 import os
+from functools import cache
 from typing import List
 
+import boto3
 from aws_lambda_typing import context as context_
 from aws_lambda_typing import events
 from cnm_sender import CnmSender
 
 from ctorm.config import (
+    AWS_REGION,
     CtormConfig,
     CtormPreparedGranule,
 )
@@ -15,6 +18,12 @@ from ctorm.config import (
 log = logging.getLogger(__name__)
 
 
+@cache
+def get_sqs_client():
+    return boto3.client("sqs", region_name=AWS_REGION)
+
+
+@cache
 def configure_cfg():
     cfg = CtormConfig.from_file(
         cfg_file=os.getenv("CFG_FILE", "./ctorm.cfg"),
@@ -43,9 +52,46 @@ def configure_logging() -> None:
         )
 
 
-def load_test(cfg: CtormConfig, granule_list: List[CtormPreparedGranule]):
-    c_sender = CnmSender(cfg, granule_list)
-    c_sender.send_all()
+def get_granule_list(event: events.EventBridgeEvent) -> List[CtormPreparedGranule]:
+    # TODO: Implement
+    return []
+
+
+def load_test(
+    cfg: CtormConfig,
+    gr_queue_url: str,
+):
+    # fetch 10 messages from SQS
+    messages = []
+    while len(messages) < 10:
+        # Since we're trying to send x granules per invocation, we will do what we can
+        # to get a full load of 10 messages.
+        sqs_resp = get_sqs_client().receive_message(
+            QueueUrl=gr_queue_url,
+            MaxNumberOfMessages=min(10 - len(messages), 10),
+            WaitTimeSeconds=5,
+            VisibilityTimeout=3600,
+        )
+
+        batch = sqs_resp.get("Messages", [])
+        if not batch:
+            break
+
+        messages.extend(batch)
+
+    for message in sqs_resp.get("Messages", []):
+        body = json.loads(message["Body"])
+        receipt_handle = message["ReceiptHandle"]
+        granule_list = body.get("granules", [])
+
+        c_sender = CnmSender(cfg, granule_list)
+        success = c_sender.send_all()
+        if success:
+            log.debug("Deleting message %s", receipt_handle)
+            # TODO: uncomment after some dev'ing
+            # get_sqs_client().delete_message(
+            #     QueueUrl=gr_queue_url, ReceiptHandle=receipt_handle
+            # )
 
 
 def lambda_handler(event: events.EventBridgeEvent, context: context_.Context):
@@ -61,9 +107,10 @@ def lambda_handler(event: events.EventBridgeEvent, context: context_.Context):
 
     try:
         log.debug("Received event: %s", event)
-        g_list = event["Records"].pop().get("body")
-        g_list = json.loads(g_list).get("granules")
-        load_test(cfg, g_list)
+        # g_list = event["Records"].pop().get("body")
+        # g_list = json.loads(g_list).get("granules")
+
+        load_test(cfg, event["granules_queue_url"])
 
         log.info("CNM sender invocation completed")
         return {"ok": True}
