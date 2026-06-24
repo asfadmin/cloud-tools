@@ -31,3 +31,8 @@ variable "prepare_source_bucket_names" {
     "sds-n-cumulus-test-nisar-products",
   ]
 }
+
+# variable "cumulus_db_md_extract_remote_codebuild_role_arn" {
+#   type        = string
+#   description = "CodeBuild service role ARN from the remote/RDS account."
+# }

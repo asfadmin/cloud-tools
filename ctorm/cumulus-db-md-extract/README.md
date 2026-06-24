@@ -72,3 +72,36 @@ bash export-granules-daily.sh
 If running in cloudshell, you need to put some sort of input into the console every 10 minutes or so, or AWS will kill
 the session.
 Really should try to create a EC2 next time.
+
+## Using Codebuild
+
+### Terraform
+
+```bash
+```bash
+export AWS_PROFILE="cumulus-uat-6921"
+export VARFILE=opera-uat.tfvars
+terraform init
+
+terraform plan \
+  -var-file="${VARFILE}"
+
+terraform apply \
+  -var-file="${VARFILE}"
+  
+terraform destroy
+
+
+```
+
+```
+
+```bash
+aws codebuild create-project \
+    --name "OneTimeDataPull" \
+    --source '{"type": "S3", "location": "ctorm-dev-scratch/codebuild/codebuild-noop.zip"}' \
+    --environment '{"type": "LINUX_CONTAINER", "image": "aws/codebuild/amazonlinux2-x86_64-standard:5.0", "computeType": "BUILD_GENERAL1_SMALL"}' \
+    --artifacts '{"type": "NO_ARTIFACTS"}' \
+    --service-role "arn:aws:iam::123456789012:role/service-role/YourCodeBuildRole" \
+    --timeout-in-minutes 240
+```

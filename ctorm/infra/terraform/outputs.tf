@@ -29,3 +29,7 @@ output "prepare_ec2_role_arn" {
 output "scratch_bucket" {
   value = aws_s3_bucket.scratch.bucket
 }
+
+output "cumulus_db_md_extract_upload_role_arn" {
+  value = aws_iam_role.cumulus_db_md_extract_upload.arn
+}

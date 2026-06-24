@@ -280,3 +280,90 @@ resource "aws_iam_role_policy" "scratch_bucket_access" {
   role   = aws_iam_role.cnm-sender.id # assumes this role already exists
   policy = data.aws_iam_policy_document.allow_scratch_bucket_access.json
 }
+
+
+data "aws_iam_policy_document" "cumulus_db_md_extract_upload_assume_role" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "sts:AssumeRole",
+    ]
+
+    principals {
+      type = "AWS"
+
+      identifiers = [
+        "arn:aws:iam::725875338589:root",
+        "arn:aws:iam::871271927522:root",
+        "arn:aws:iam::372059463218:root",
+        "arn:aws:iam::097260566921:root",
+        "arn:aws:iam::082931748743:root",
+        "arn:aws:iam::510296831643:root"
+      ]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:PrincipalArn"
+
+      values = [
+        "arn:aws:iam::725875338589:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::871271927522:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::372059463218:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::097260566921:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::082931748743:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::510296831643:role/ctorm-cumulus-db-md-extract-role"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "cumulus_db_md_extract_upload" {
+  name               = "${var.name_prefix}-cumulus-db-md-extract-upload"
+  assume_role_policy = data.aws_iam_policy_document.cumulus_db_md_extract_upload_assume_role.json
+}
+
+data "aws_iam_policy_document" "cumulus_db_md_extract_upload" {
+  statement {
+    sid    = "UploadExtractedGranules"
+    effect = "Allow"
+
+    actions = [
+      "s3:PutObject",
+      "s3:AbortMultipartUpload",
+    ]
+
+    resources = [
+      "${aws_s3_bucket.scratch.arn}/cumulus-granules/*",
+    ]
+  }
+
+  statement {
+    sid    = "ListDestinationPrefix"
+    effect = "Allow"
+
+    actions = [
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      aws_s3_bucket.scratch.arn,
+    ]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+
+      values = [
+        "cumulus-granules/*",
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "cumulus_db_md_extract_upload" {
+  name   = "${var.name_prefix}-cumulus-db-md-extract-upload"
+  role   = aws_iam_role.cumulus_db_md_extract_upload.id
+  policy = data.aws_iam_policy_document.cumulus_db_md_extract_upload.json
+}
