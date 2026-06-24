@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import re
 from enum import StrEnum
 from functools import cache
@@ -9,14 +10,9 @@ import boto3
 from botocore.exceptions import ClientError
 from mypy_boto3_s3.type_defs import ListObjectsV2OutputTypeDef
 
-from ctorm.config import AWS_REGION, CtormBucket, CtormConfig
+from ctorm.config import AWS_REGION, MD5_CHECKSUM_PATTERN, CtormConfig, CtormPipeline
 
 log = getLogger(__name__)
-
-
-@cache
-def get_s3_client():
-    return boto3.client("s3", region_name=AWS_REGION)
 
 
 @cache
@@ -43,13 +39,13 @@ class CtormSqsMessage:
 
     def __init__(self, cfg: CtormConfig):
         self.cfg = cfg
-        self.files = []
+        self.granules = []
 
     def add_file(self, file: dict):
-        self.files.append(file)
+        self.granules.append(file)
 
     def to_dict(self):
-        return {"files": self.files}
+        return {"granules": self.granules}
 
     def to_json(self):
         return json.dumps(self.to_dict())
@@ -63,13 +59,31 @@ class CtormPrepare:
 
     def __init__(self, cfg: CtormConfig):
         self.cfg = cfg
+        self.total_granules = 0
+
+        self._boto_sessions = {}
+
+        # init buckets
+        for bkt in self.cfg.pipelines:
+            bkt.next_cont_token = None
+            keysuffix = (
+                f"_{bkt.prepare_keypair_name}" if bkt.prepare_keypair_name else ""
+            )
+            if bkt.prepare_keypair_name not in self._boto_sessions:
+                self._boto_sessions[bkt.prepare_keypair_name] = boto3.Session(
+                    region_name=AWS_REGION,
+                    aws_access_key_id=os.getenv(f"AWS_ACCESS_KEY_ID{keysuffix}"),
+                    aws_secret_access_key=os.getenv(
+                        f"AWS_SECRET_ACCESS_KEY{keysuffix}"
+                    ),
+                )
+            bkt.s3_client = self._boto_sessions[bkt.prepare_keypair_name].client("s3")
 
     def prepare(self):
-        goal = 50
-        while goal > 0:  # TODO: replace with while true and an exit condition
+        while self.total_granules < self.cfg.granule_goal:
             # This is the loop that creates a SQS message from multiple objects.
             sqs_msg = CtormSqsMessage(self.cfg)
-            for b in self.cfg.source_buckets:
+            for b in self.cfg.pipelines:
                 # This is the loop that goes into each bucket we're interested in.
                 log.debug("getting objects from %s", b.bucketname)
 
@@ -82,15 +96,19 @@ class CtormPrepare:
                         continue
                     log.debug("  %s", obj["Key"])
                     # download the json object and load it into a var:
-                    ummg = self.download_ummg(b.bucketname, obj["Key"])
+                    ummg = self.download_ummg(b, obj["Key"])
                     file = self.process_ummg(ummg, b)
                     if file:
                         sqs_msg.add_file(file)
-                    goal -= 1
+                    self.total_granules += 1
                 b.next_cont_token = page.get("NextContinuationToken")
 
-            log.debug("goal: %d", goal)
+            log.debug("tot granules: %d/%d", self.total_granules, self.cfg.granule_goal)
             log.debug("sqs_msg size: %d", len(sqs_msg.to_json()))
+            log.debug(
+                "sqs message percentage: %d%%",
+                (len(sqs_msg.to_json()) / CtormSqsMessage.MAX_MESSAGE_SIZE) * 100,
+            )
             log.debug("sqs_msg size OK?: %d", sqs_msg.check_message_size())
             if sqs_msg.check_message_size():
                 log.debug("sqs_msg: %s", sqs_msg.to_json())
@@ -102,7 +120,7 @@ class CtormPrepare:
                 raise Exception("Message too big")
                 # TODO: deal with this smarter
 
-    def get_ummg_page(self, ct_bukt: CtormBucket) -> ListObjectsV2OutputTypeDef:
+    def get_ummg_page(self, ct_bukt: CtormPipeline) -> ListObjectsV2OutputTypeDef:
         kwargs = {
             "Bucket": ct_bukt.bucketname,
             "MaxKeys": ct_bukt.share,
@@ -110,15 +128,15 @@ class CtormPrepare:
         }
         if ct_bukt.next_cont_token:
             kwargs["ContinuationToken"] = ct_bukt.next_cont_token
-        ret = get_s3_client().list_objects_v2(**kwargs)
+        ret = ct_bukt.s3_client.list_objects_v2(**kwargs)
         return ret
 
-    def download_ummg(self, bucketname: str, key: str) -> dict:
-        resp = get_s3_client().get_object(Bucket=bucketname, Key=key)
+    def download_ummg(self, b: CtormPipeline, key: str) -> dict:
+        resp = b.s3_client.get_object(Bucket=b.bucketname, Key=key)
         ummgfile = resp["Body"].read()
         return json.loads(ummgfile)
 
-    def process_ummg(self, ummg: dict, ct_bkt: CtormBucket) -> dict:
+    def process_ummg(self, ummg: dict, ct_bkt: CtormPipeline) -> dict:
         outdict = {
             K.BKT_MAP: {ct_bkt.bucketname: "B1"},  # bucket map
             K.GRANULE: ummg["GranuleUR"],
@@ -136,27 +154,40 @@ class CtormPrepare:
 
                 # Replace the granulename with a token for compression. Will reconstitute in the lambda
                 fileval = (
-                    r_urls["URL"].replace(outdict[K.GRANULE], "$G").replace(bucket, f"${outdict[K.BKT_MAP][bucket]}")
+                    r_urls["URL"]
+                    .replace(outdict[K.GRANULE], "$G")
+                    .replace(bucket, f"${outdict[K.BKT_MAP][bucket]}")
                 )
                 filedict = {"f": fileval}
-                for distr_file in ummg["DataGranule"]["ArchiveAndDistributionInformation"]:
+                for distr_file in ummg["DataGranule"][
+                    "ArchiveAndDistributionInformation"
+                ]:
                     if r_urls["URL"].endswith(distr_file["Name"]):
                         # We handily have the md5 and size in the ummg
-                        filedict[K.MD5] = distr_file["Checksum"]["Value"]
+                        # TODO: double-check this test is correct and we're not unnecessarily HEADing too many files.
                         filedict[K.SIZE] = distr_file["SizeInBytes"]
+                        filedict[K.MD5] = distr_file["Checksum"]["Value"]
                         break
                     else:
                         # We must look to S3 for the size and md5
                         log.debug('getting head for "%s"', objloc)
                         try:
-                            headobj = get_s3_client().head_object(Bucket=bucket, Key=objloc)
+                            headobj = ct_bkt.s3_client.head_object(
+                                Bucket=bucket, Key=objloc
+                            )
                             log.debug("head_object: %s", headobj)
                             filedict[K.SIZE] = headobj["ContentLength"]
-                            filedict[K.MD5] = headobj["ETag"].replace('"', "")
-                            if filedict[K.MD5].endswith("-1"):
-                                # This was a multipart upload. We'll have to do something clever to get the MD5 of it.
+
+                            md5 = headobj["ETag"].replace('"', "")
+                            if MD5_CHECKSUM_PATTERN.fullmatch(md5):
+                                filedict[K.MD5] = md5
+                            elif self.cfg.calc_md5:
                                 log.debug("multipart upload detected for %s", objloc)
-                                filedict[K.MD5] = self.get_real_md5(bucket, objloc)
+                                filedict[K.MD5] = self.get_real_md5(
+                                    ct_bkt, bucket, objloc
+                                )
+                            else:
+                                log.debug("no need to calculate md5 for %s", objloc)
                         except ClientError as e:
                             log.error("head_object failed: %s", e)
                             # TODO: trash entire message for this granule?
@@ -167,12 +198,15 @@ class CtormPrepare:
 
     def get_real_md5(
         self,
-        bucket: str,
+        b: CtormPipeline,
+        obj_bucket: str,
         key: str,
     ) -> str:
         # The file is small enough we may as well download it to memory and get the MD5 that way.
-        resp = get_s3_client().get_object(Bucket=bucket, Key=key)
+        resp = b.s3_client.get_object(Bucket=obj_bucket, Key=key)
         md5_accumulator = hashlib.md5()
-        for chunk in iter(lambda: resp["Body"].read(self.MD5_DL_CHUNK_MB * 1024 * 1024), b""):
+        for chunk in iter(
+            lambda: resp["Body"].read(self.MD5_DL_CHUNK_MB * 1024 * 1024), b""
+        ):
             md5_accumulator.update(chunk)
         return md5_accumulator.hexdigest()
