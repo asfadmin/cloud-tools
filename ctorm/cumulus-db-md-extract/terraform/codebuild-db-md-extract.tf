@@ -12,7 +12,7 @@ variable "aws_region" {
 
 variable "db_md_extract_secret_arn" {
   type        = string
-  description = "ARN of the Secrets Manager secret containing host, username, password, and database."
+  description = "ARN of the Secrets Manager secret containing host, username, password, and database in the RDS account."
 }
 
 variable "db_md_extract_vpc_id" {
@@ -35,15 +35,15 @@ variable "db_md_extract_dump_subdir" {
   default = "nisar"
 }
 
-variable "db_md_extract_target_bucket" {
+variable "db_md_extract_ctorm_bucket" {
   type        = string
-  default     = ""
-  description = "Destination S3 bucket for exported dump files."
+  default     = "ctorm-dev-scratch"
+  description = "Destination CTORM S3 bucket for exported dump files."
 }
 
-variable "db_md_extract_target_role_arn" {
+variable "db_md_extract_ctorm_s3_role_arn" {
   type        = string
-  description = "Role ARN in the target account that CodeBuild can assume to write exported files."
+  description = "Role ARN in the CTORM account that CodeBuild can assume to write exported files."
 }
 
 locals {
@@ -51,14 +51,56 @@ locals {
   db_md_extract_source_key   = "codebuild/cumulus-db-md-extract.zip"
 }
 
+resource "aws_s3_bucket" "codebuild_source" {
+  bucket        = "${local.db_md_extract_project_name}-source-${substr(data.aws_caller_identity.current.account_id, 8, 4)}"
+  force_destroy = true
+
+}
+
+resource "aws_s3_bucket_ownership_controls" "codebuild_source" {
+  bucket = aws_s3_bucket.codebuild_source.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "codebuild_source" {
+  bucket = aws_s3_bucket.codebuild_source.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "codebuild_source" {
+  bucket = aws_s3_bucket.codebuild_source.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+data "aws_caller_identity" "current" {}
+
 data "archive_file" "cumulus_db_md_extract" {
   type        = "zip"
-  source_dir  = "${path.module}/../../cumulus-db-md-extract"
-  output_path = "${path.module}/cumulus-db-md-extract.zip"
+  source_dir  = "${path.module}/.."
+  output_path = "${path.module}/.terraform/cumulus-db-md-extract.zip"
+
+  excludes = [
+    "terraform",
+    "terraform/*",
+    ".terraform",
+    ".terraform/*",
+  ]
 }
 
 resource "aws_s3_object" "cumulus_db_md_extract_source" {
-  bucket      = aws_s3_bucket.scratch.bucket
+  bucket      = aws_s3_bucket.codebuild_source.bucket
   key         = local.db_md_extract_source_key
   source      = data.archive_file.cumulus_db_md_extract.output_path
   source_hash = data.archive_file.cumulus_db_md_extract.output_base64sha256
@@ -108,7 +150,7 @@ data "aws_iam_policy_document" "codebuild_db_md_extract" {
   }
 
   statement {
-    sid    = "ReadBuildSourceFromScratchBucket"
+    sid    = "ReadBuildSource"
     effect = "Allow"
 
     actions = [
@@ -117,12 +159,12 @@ data "aws_iam_policy_document" "codebuild_db_md_extract" {
     ]
 
     resources = [
-      "${aws_s3_bucket.scratch.arn}/${local.db_md_extract_source_key}",
+      "${aws_s3_bucket.codebuild_source.arn}/${local.db_md_extract_source_key}",
     ]
   }
 
   statement {
-    sid    = "ListScratchBucketForBuildSource"
+    sid    = "ListBuildSourceBucket"
     effect = "Allow"
 
     actions = [
@@ -130,7 +172,7 @@ data "aws_iam_policy_document" "codebuild_db_md_extract" {
     ]
 
     resources = [
-      aws_s3_bucket.scratch.arn,
+      aws_s3_bucket.codebuild_source.arn,
     ]
 
     condition {
@@ -158,7 +200,7 @@ data "aws_iam_policy_document" "codebuild_db_md_extract" {
   }
 
   statement {
-    sid    = "AssumeTargetAccountUploadRole"
+    sid    = "AssumeCtormAccountUploadRole"
     effect = "Allow"
 
     actions = [
@@ -166,7 +208,7 @@ data "aws_iam_policy_document" "codebuild_db_md_extract" {
     ]
 
     resources = [
-      var.db_md_extract_target_role_arn,
+      var.db_md_extract_ctorm_s3_role_arn,
     ]
   }
 
@@ -175,6 +217,8 @@ data "aws_iam_policy_document" "codebuild_db_md_extract" {
     effect = "Allow"
 
     actions = [
+      "ec2:DescribeDhcpOptions",
+      "ec2:DescribeRouteTables",
       "ec2:DescribeSecurityGroups",
       "ec2:DescribeSubnets",
       "ec2:DescribeVpcs",
@@ -219,7 +263,7 @@ resource "aws_iam_role_policy" "codebuild_db_md_extract" {
 
 resource "aws_codebuild_project" "cumulus_db_md_extract" {
   name          = local.db_md_extract_project_name
-  description   = "One-time Cumulus RDS metadata export to S3"
+  description   = "One-time Cumulus RDS metadata export to CTORM S3"
   service_role  = aws_iam_role.codebuild_db_md_extract.arn
   build_timeout = 480
 
@@ -229,7 +273,7 @@ resource "aws_codebuild_project" "cumulus_db_md_extract" {
 
   source {
     type      = "S3"
-    location  = "${aws_s3_bucket.scratch.bucket}/${aws_s3_object.cumulus_db_md_extract_source.key}"
+    location  = "${aws_s3_bucket.codebuild_source.bucket}/${aws_s3_object.cumulus_db_md_extract_source.key}"
     buildspec = "buildspec.yaml"
   }
 
@@ -245,7 +289,7 @@ resource "aws_codebuild_project" "cumulus_db_md_extract" {
 
     environment_variable {
       name  = "CTORM_BUCKET"
-      value = var.db_md_extract_target_bucket
+      value = var.db_md_extract_ctorm_bucket
     }
 
     environment_variable {
@@ -259,8 +303,8 @@ resource "aws_codebuild_project" "cumulus_db_md_extract" {
     }
 
     environment_variable {
-      name  = "TARGET_ROLE_ARN"
-      value = var.db_md_extract_target_role_arn
+      name  = "CTORM_S3_ROLE_ARN"
+      value = var.db_md_extract_ctorm_s3_role_arn
     }
   }
 
@@ -292,5 +336,5 @@ output "cumulus_db_md_extract_codebuild_role_arn" {
 }
 
 output "cumulus_db_md_extract_source_s3_uri" {
-  value = "s3://${aws_s3_bucket.scratch.bucket}/${aws_s3_object.cumulus_db_md_extract_source.key}"
+  value = "s3://${aws_s3_bucket.codebuild_source.bucket}/${aws_s3_object.cumulus_db_md_extract_source.key}"
 }

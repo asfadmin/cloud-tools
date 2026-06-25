@@ -304,16 +304,27 @@ data "aws_iam_policy_document" "cumulus_db_md_extract_upload_assume_role" {
     }
 
     condition {
-      test     = "ArnEquals"
+      test     = "ArnLike"
       variable = "aws:PrincipalArn"
 
       values = [
         "arn:aws:iam::725875338589:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::725875338589:role/ctorm-*-cumulus-db-md-extract-role",
+
         "arn:aws:iam::871271927522:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::871271927522:role/ctorm-*-cumulus-db-md-extract-role",
+
         "arn:aws:iam::372059463218:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::372059463218:role/ctorm-*-cumulus-db-md-extract-role",
+
         "arn:aws:iam::097260566921:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::097260566921:role/ctorm-*-cumulus-db-md-extract-role",
+
         "arn:aws:iam::082931748743:role/ctorm-cumulus-db-md-extract-role",
-        "arn:aws:iam::510296831643:role/ctorm-cumulus-db-md-extract-role"
+        "arn:aws:iam::082931748743:role/ctorm-*-cumulus-db-md-extract-role",
+
+        "arn:aws:iam::510296831643:role/ctorm-cumulus-db-md-extract-role",
+        "arn:aws:iam::510296831643:role/ctorm-*-cumulus-db-md-extract-role"
       ]
     }
   }

@@ -30,9 +30,10 @@ WITH export_rows AS (
    AND f.checksum_value IS NOT NULL
   WHERE g.status = 'completed'
     AND c.name = :'collection'
-    AND g.beginning_date_time >= to_timestamp(:'yyyymm' || '01', 'YYYYMMDD') AT TIME ZONE 'UTC'
+
+    AND g.beginning_date_time >= to_date(:'yyyymmdd', 'YYYYMMDD')
     AND g.beginning_date_time < (
-      to_timestamp(:'yyyymm' || '01', 'YYYYMMDD') + interval '1 month'
+      to_date(:'yyyymmdd', 'YYYYMMDD') + interval '1 day'
     ) AT TIME ZONE 'UTC'
   GROUP BY
     g.granule_id,
