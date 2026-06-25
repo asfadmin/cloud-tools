@@ -80,12 +80,20 @@ Really should try to create a EC2 next time.
 ```bash
 export AWS_PROFILE="cumulus-uat-6921"
 export VARFILE=opera-uat.tfvars
+export STATEFILE=terraform-opera-uat.tfstate
+
+terraform workspace new opera-uat
+
+export TF_WORKSPACE=opera-uat
+
 terraform init
 
 terraform plan \
+  -state="${STATEFILE}" \
   -var-file="${VARFILE}"
 
 terraform apply \
+  -state="${STATEFILE}" \
   -var-file="${VARFILE}"
   
 terraform destroy
@@ -98,7 +106,7 @@ terraform destroy
 ```bash
 export AWS_PROFILE="cumulus-uat-6921"
 export AWS_REGION="us-west-2"
-export CODEBUILD_PROJECT="$(terraform output -raw cumulus_db_md_extract_codebuild_project_name)"
+export CODEBUILD_PROJECT="$(terraform output -state="${STATEFILE}" -raw cumulus_db_md_extract_codebuild_project_name)"
 
 # start build:
 BUILD_ID="$(
