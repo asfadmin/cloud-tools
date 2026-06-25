@@ -1,9 +1,6 @@
 
 set -euo pipefail
 
-
-S3_URI="s3://${CTORM_BUCKET}/cumulus-granules/${DUMP_SUBDIR}"
-
 psql \
   --host="$PGHOST" \
   --port="${PGPORT:-5432}" \
@@ -94,4 +91,9 @@ psql \
       c.name,
       to_char(g.beginning_date_time AT TIME ZONE 'UTC', 'YYYYMMDD');
   " > slices_daily.tsv
-  aws s3 cp slices_daily.tsv "$S3_URI/"
+
+source ./refresh-ctorm-upload-role.sh
+
+SLICES_S3_URI="s3://${CTORM_BUCKET}/cumulus-granules/${DUMP_SUBDIR}/slices_daily.tsv"
+aws s3 cp slices_daily.tsv "${SLICES_S3_URI}"
+echo "Uploaded ${SLICES_S3_URI}"

@@ -48,7 +48,7 @@ phases:
   pre_build:
     commands:
       - ls -lah
-      - chmod +x generate-slices-daily.sh export-granules-daily.sh test-s3-cp.sh
+      - chmod +x generate-slices-daily.sh export-granules-daily.sh test-s3-cp.sh refresh-ctorm-upload-role.sh
       - |
         echo 'Before assuming role: '
       - aws sts get-caller-identity
