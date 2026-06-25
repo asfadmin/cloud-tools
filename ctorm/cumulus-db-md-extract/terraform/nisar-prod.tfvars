@@ -17,3 +17,5 @@ db_md_extract_security_group_ids = [
 db_md_extract_ctorm_s3_role_arn = "arn:aws:iam::097260566921:role/ctorm-cumulus-db-md-extract-upload"
 
 db_md_extract_dump_subdir = "nisar"
+
+db_md_extract_ctorm_bucket = "ctorm-scratch"

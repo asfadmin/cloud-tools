@@ -48,7 +48,7 @@ phases:
   pre_build:
     commands:
       - ls -lah
-      - chmod +x generate-slices-daily.sh export-granules-daily.sh
+      - chmod +x generate-slices-daily.sh export-granules-daily.sh test-s3-cp.sh
       - |
         echo 'Before assuming role: '
       - aws sts get-caller-identity
@@ -65,18 +65,13 @@ phases:
       - |
         echo 'After assuming role: '
       - aws sts get-caller-identity
-      - |
-        id=$(aws sts get-caller-identity)
-        if [ -z "$id" ]; then
-         echo "Error: `aws sts get-caller-identity` returned no output." >&2
-         exit 1
-        fi
 
 
   build:
     commands:
+      # fail fast if we can't actually copy to S3:
+      - ./test-s3-cp.sh
 
-      - aws sts get-caller-identity
       - ./generate-slices-daily.sh
       - ./export-granules-daily.sh
   post_build:
