@@ -65,6 +65,13 @@ phases:
       - |
         echo 'After assuming role: '
       - aws sts get-caller-identity
+      - |
+        id=$(aws sts get-caller-identity)
+        if [ -z "$id" ]; then
+         echo "Error: `aws sts get-caller-identity` returned no output." >&2
+         exit 1
+        fi
+
 
   build:
     commands:

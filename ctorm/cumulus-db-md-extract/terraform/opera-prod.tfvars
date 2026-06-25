@@ -14,6 +14,7 @@ db_md_extract_security_group_ids = [
   "sg-0ed18cd0fb6e79f58",
 ]
 
-db_md_extract_ctorm_s3_role_arn = "arn:aws:iam::097260566921:role/ctorm-cumulus-db-md-extract-upload."
+# Look at the ctorm tf output for `cumulus_db_md_extract_upload_role_arn`
+db_md_extract_ctorm_s3_role_arn = "arn:aws:iam::097260566921:role/ctorm-cumulus-db-md-extract-upload"
 
 db_md_extract_dump_subdir = "opera"
