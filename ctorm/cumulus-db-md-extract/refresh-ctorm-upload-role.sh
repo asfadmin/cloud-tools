@@ -8,6 +8,7 @@ fi
 
 echo "Refreshing CTORM upload role credentials..." >&2
 
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 CREDS_JSON="$(aws sts assume-role \
   --role-arn "${CTORM_S3_ROLE_ARN}" \
   --role-session-name "cumulus-db-md-extract-${CODEBUILD_BUILD_NUMBER:-manual}-$(date +%s)")"

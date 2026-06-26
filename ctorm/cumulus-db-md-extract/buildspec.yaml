@@ -54,17 +54,10 @@ phases:
       - aws sts get-caller-identity
       - |
         echo "Assuming ctorm upload role..."
-      - |
-        CREDS_JSON="$(aws sts assume-role \
-          --role-arn "${CTORM_S3_ROLE_ARN}" \
-          --role-session-name "cumulus-db-md-extract-${CODEBUILD_BUILD_NUMBER}")"
-
-        export AWS_ACCESS_KEY_ID="$(echo "${CREDS_JSON}" | jq -r '.Credentials.AccessKeyId')"
-        export AWS_SECRET_ACCESS_KEY="$(echo "${CREDS_JSON}" | jq -r '.Credentials.SecretAccessKey')"
-        export AWS_SESSION_TOKEN="$(echo "${CREDS_JSON}" | jq -r '.Credentials.SessionToken')"
+        source ./refresh-ctorm-upload-role.sh
       - |
         echo 'After assuming role: '
-      - aws sts get-caller-identity
+        aws sts get-caller-identity
 
 
   build:
