@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "Installing dependencies..."
+      - pip install boto3
+  build:
+    commands:
+      - echo "Starting DynamoDB Import script..."
+      - python granule_md_db_loader.py
+  post_build:
+    commands:
+      - echo "Import finished."

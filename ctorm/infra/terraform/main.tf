@@ -33,6 +33,23 @@ resource "aws_dynamodb_table" "granules" {
     name = "sk"
     type = "S"
   }
+
+  attribute {
+    name = "gsi1pk"
+    type = "S"
+  }
+
+  attribute {
+    name = "gsi1sk"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "gsi1"
+    hash_key        = "gsi1pk"
+    range_key       = "gsi1sk"
+    projection_type = "ALL"
+  }
 }
 
 
@@ -101,7 +118,8 @@ data "aws_iam_policy_document" "cnm-sender" {
     ]
 
     resources = [
-      aws_dynamodb_table.granules.arn
+      aws_dynamodb_table.granules.arn,
+      "${aws_dynamodb_table.granules.arn}/index/*"
     ]
   }
 }
@@ -314,4 +332,114 @@ resource "aws_iam_role_policy" "cumulus_db_md_extract_upload" {
   name   = "${var.name_prefix}-cumulus-db-md-extract-upload"
   role   = aws_iam_role.cumulus_db_md_extract_upload.id
   policy = data.aws_iam_policy_document.cumulus_db_md_extract_upload.json
+}
+
+
+# Granule DynamoDB loader.
+data "archive_file" "granule_md_db_loader" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../granule-md-db-loader"
+  output_path = "${path.module}/.terraform/granule-md-db-loader.zip"
+}
+
+resource "aws_s3_object" "granule_md_db_loader_source" {
+  bucket      = aws_s3_bucket.scratch.bucket
+  key         = "codebuild/granule-md-db-loader.zip"
+  source      = data.archive_file.granule_md_db_loader.output_path
+  source_hash = data.archive_file.granule_md_db_loader.output_base64sha256
+}
+
+resource "aws_iam_role" "granule_md_db_loader_role" {
+  name = "${var.name_prefix}-codebuild-granule_md_db_loader-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "codebuild_granule_md_db_loader_role_policy" {
+  name = "${var.name_prefix}-codebuild-granule-md-db-loader-role-policy"
+  role = aws_iam_role.granule_md_db_loader_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.scratch.arn,
+          "${aws_s3_bucket.scratch.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:BatchWriteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.granules.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_codebuild_project" "granule_md_db_loader" {
+  name          = "${var.name_prefix}-granule-md-db-loader"
+  description   = "Imports granules jsonl.gz files from S3 to DynamoDB"
+  service_role  = aws_iam_role.granule_md_db_loader_role.arn
+  build_timeout = 480
+
+  artifacts {
+    type = "NO_ARTIFACTS"
+  }
+
+  source {
+    type     = "S3"
+    location = "${aws_s3_bucket.scratch.bucket}/${aws_s3_object.granule_md_db_loader_source.key}"
+  }
+
+  environment {
+    type         = "LINUX_CONTAINER"
+    image        = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+    compute_type = "BUILD_GENERAL1_SMALL"
+
+    environment_variable {
+      name  = "CTORM_BUCKET"
+      value = aws_s3_bucket.scratch.bucket
+    }
+
+    environment_variable {
+      name  = "TABLE_NAME"
+      value = aws_dynamodb_table.granules.name
+    }
+
+    environment_variable {
+      name  = "PREFIX"
+      value = "cumulus-granules/"
+    }
+  }
 }
