@@ -18,11 +18,14 @@ resource "aws_sqs_queue" "granules" {
 }
 
 resource "aws_dynamodb_table" "granules" {
-  name         = "${var.name_prefix}-granules"
-  billing_mode = "PAY_PER_REQUEST"
+  name = "${var.name_prefix}-granules"
+  # billing_mode = "PROVISIONED" # Temporarily switch to PROVISIONED for bulk load
+  billing_mode = var.granule_table_billing_mode
 
-  hash_key  = "pk"
-  range_key = "sk"
+  read_capacity  = var.granule_table_billing_mode == "PROVISIONED" ? var.granule_table_write_capacity : null
+  write_capacity = var.granule_table_billing_mode == "PROVISIONED" ? 5 : null
+  hash_key       = "pk"
+  range_key      = "sk"
 
   attribute {
     name = "pk"
@@ -49,8 +52,12 @@ resource "aws_dynamodb_table" "granules" {
     hash_key        = "gsi1pk"
     range_key       = "gsi1sk"
     projection_type = "ALL"
+
+    read_capacity  = var.granule_table_billing_mode == "PROVISIONED" ? var.granule_table_write_capacity : null
+    write_capacity = var.granule_table_billing_mode == "PROVISIONED" ? 5 : null
   }
 }
+
 
 
 resource "aws_cloudwatch_log_group" "cnm-sender" {

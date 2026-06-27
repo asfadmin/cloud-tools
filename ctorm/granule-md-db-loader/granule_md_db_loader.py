@@ -1,15 +1,47 @@
-import os
-import sys
+import datetime
 import gzip
 import json
 import logging
-import datetime
+import os
+import sys
+import time
 from decimal import Decimal
+
 import boto3
+from botocore.config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+class PartitionRateLimiter:
+    """
+    Limits the number of write requests to any single partition key (pk)
+    to prevent exceeding DynamoDB's physical limit of 1000 operations/sec per partition.
+    """
+
+    def __init__(self, max_rate_per_sec: int = 890):
+        self.max_rate = max_rate_per_sec
+        self.history = {}  # pk -> list of timestamps
+
+    def limit(self, pk):
+        now = time.time()
+        if pk not in self.history:
+            self.history[pk] = []
+
+        # Retain only timestamps from the last 1.0 second
+        self.history[pk] = [t for t in self.history[pk] if now - t < 1.0]
+
+        if len(self.history[pk]) >= self.max_rate:
+            # Calculate sleep duration to let the oldest request roll off the 1-second window
+            sleep_time = 1.0 - (now - self.history[pk][0])
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            now = time.time()
+            self.history[pk] = [t for t in self.history[pk] if now - t < 1.0]
+
+        self.history[pk].append(now)
 
 
 def main():
@@ -22,7 +54,15 @@ def main():
         sys.exit(1)
 
     s3 = boto3.client("s3")
-    dynamodb = boto3.resource("dynamodb")
+
+    # Configure boto3 with more aggressive retries to gracefully handle scale peaks
+    retry_config = Config(
+        retries={
+            "max_attempts": 10,
+            "mode": "standard"
+        }
+    )
+    dynamodb = boto3.resource("dynamodb", config=retry_config)
     table = dynamodb.Table(table_name)
 
     logger.info(f"Starting import from s3://{bucket_name}/{prefix} into DynamoDB table {table_name}")
@@ -32,6 +72,9 @@ def main():
 
     total_files = 0
     total_records = 0
+
+    # Initialize partition-level rate limiter set to a safe threshold (850 writes/sec per pk)
+    rate_limiter = PartitionRateLimiter(max_rate_per_sec=850)
 
     # Walk through the bucket objects
     for page in pages:
@@ -72,13 +115,17 @@ def main():
                                 continue
 
                             # Add/modify fields if needed
-                            # Example additional fields:
                             item["imported_at"] = datetime.datetime.utcnow().isoformat() + "Z"
 
                             # Ensure partition and sort keys are present
-                            if "pk" not in item or "sk" not in item:
+                            pk = item.get("pk")
+                            sk = item.get("sk")
+                            if not pk or not sk:
                                 logger.warning(f"Skipping record missing pk/sk: {item.get('granule_id')}")
                                 continue
+
+                            # Apply dynamic rate limit based on the partition key
+                            rate_limiter.limit(pk)
 
                             # Batch insert into DynamoDB
                             batch.put_item(Item=item)

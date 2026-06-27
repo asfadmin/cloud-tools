@@ -32,6 +32,18 @@ variable "prepare_source_bucket_names" {
   ]
 }
 
+variable "granule_table_billing_mode" {
+  type        = string
+  default     = "PAY_PER_REQUEST"
+  description = "Must be either PROVISIONED or PAY_PER_REQUEST"
+}
+
+variable "granule_table_write_capacity" {
+  type        = number
+  default     = 10000
+  description = "When billing_mode is PROVISIONED, forces write_capacity/10 physical partition splits immediately. Set to 1000*number of parallel granule_md_db_loader runs."
+}
+
 # variable "cumulus_db_md_extract_remote_codebuild_role_arn" {
 #   type        = string
 #   description = "CodeBuild service role ARN from the remote/RDS account."
