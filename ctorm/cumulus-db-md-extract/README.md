@@ -128,10 +128,7 @@ echo "${BUILD_ID}"
    aws codebuild start-build \
      --project-name "${CODEBUILD_PROJECT}" \
      --region "${AWS_REGION}" \
-     --environment-variables-override '[
-        {"name": "SLICES_S3_URI", "value": "s3://ctorm-scratch/cumulus-granules/opera/slices_daily-OPERA_L2_RTC-S1_V1-20170910-20181203.tsv", "type": "PLAINTEXT"},
-        {"name": "COLLECTION", "value": "OPERA_L2_RTC-S1_V1", "type": "PLAINTEXT"}
-    ]' \
+     --environment-variables-override name=SLICES_S3_URI,value="s3://ctorm-scratch/cumulus-granules/opera/slices_daily-OPERA_L2_CSLC-S1_V1-20180707-20200522.tsv",type=PLAINTEXT  \
      --query 'build.id' \
      --output text
 # )"

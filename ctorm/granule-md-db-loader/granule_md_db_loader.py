@@ -47,49 +47,51 @@ class PartitionRateLimiter:
 
 
 def handle_file(
-        local_path,
-        table,
-        rate_limiter: PartitionRateLimiter,
-        records_in_file,
-        total_records,
+    local_path: str,
+    table,
+    rate_limiter: PartitionRateLimiter,
+    records_in_file: int,
+    total_records: int,
 ):
-    with gzip.open(local_path, "rt", encoding="utf-8") as f:
-        with table.batch_writer() as batch:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
+    with (
+        gzip.open(local_path, "rt", encoding="utf-8") as f,
+        table.batch_writer() as batch,
+    ):
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
 
-                try:
-                    # Convert floats/doubles to Decimal for
-                    # DynamoDB compatibility
-                    item = json.loads(line, parse_float=Decimal)
-                except Exception as e:
-                    logger.error(f"Failed to parse JSON line: {e}")
-                    continue
+            try:
+                # Convert floats/doubles to Decimal for
+                # DynamoDB compatibility
+                item = json.loads(line, parse_float=Decimal)
+            except Exception as e:
+                logger.error("Failed to parse JSON line: %s", e)
+                continue
 
-                # Add/modify fields if needed
-                newdate = datetime.datetime.utcnow().isoformat() + "Z"
-                item["imported_at"] = newdate
+            # Add/modify fields if needed
+            newdate = datetime.datetime.utcnow().isoformat() + "Z"
+            item["imported_at"] = newdate
 
-                # Ensure partition and sort keys are present
-                pk = item.get("pk")
-                sk = item.get("sk")
-                if not pk or not sk:
-                    logger.warning(
-                        "Skipping record missing pk/sk: %s",
-                        item.get('granule_id'),
-                    )
+            # Ensure partition and sort keys are present
+            pk = item.get("pk")
+            sk = item.get("sk")
+            if not pk or not sk:
+                logger.warning(
+                    "Skipping record missing pk/sk: %s",
+                    item.get("granule_id"),
+                )
 
-                    continue
+                continue
 
-                # Apply dynamic rate limit based on the partition key
-                rate_limiter.limit(pk)
+            # Apply dynamic rate limit based on the partition key
+            rate_limiter.limit(pk)
 
-                # Batch insert into DynamoDB
-                batch.put_item(Item=item)
-                records_in_file += 1
-                total_records += 1
+            # Batch insert into DynamoDB
+            batch.put_item(Item=item)
+            records_in_file += 1
+            total_records += 1
     return records_in_file, total_records
 
 
@@ -142,7 +144,7 @@ def main():
             if not key.endswith(".jsonl.gz"):
                 continue
 
-            logger.info(f"Processing s3://{bucket_name}/{key}")
+            logger.info("Processing s3://%s/%s", bucket_name, key)
             total_files += 1
 
             # Download and decompress the file
@@ -166,14 +168,13 @@ def main():
                     dyndb_table,
                     rate_limiter,
                     records_in_file,
-                    total_records
+                    total_records,
                 )
 
                 logger.info(
                     "Successfully imported %s records from %s",
                     records_in_file,
                     key,
-
                 )
             except Exception as e:
                 logger.error("Error processing file %s: %s", key, e)

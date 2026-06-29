@@ -26,7 +26,7 @@ export CTORM_BUCKET="ctorm-dev-scratch"
 aws s3 ls s3://${CTORM_BUCKET}/cumulus-granules/nisar/ |grep PRE
 aws s3 ls s3://${CTORM_BUCKET}/cumulus-granules/opera/ |grep PRE
 
-# If you want do them all sequentially, not recommended and not going to work with all the data:
+# If you want do them all sequentially, not recommended and not going to work with all the data because throttling::
 aws codebuild start-build --profile="${AWS_PROFILE}" \
 --project-name "${CODEBUILD_PROJECT}" \
 --region "us-west-2" \
@@ -60,6 +60,7 @@ aws codebuild start-build --profile="${AWS_PROFILE}" \
 --environment-variables-override name=PREFIX,value=cumulus-granules/opera/OPERA_L3_DIST-ALERT-S1_V1_/,type=PLAINTEXT \
 --query 'build.id' \
 --output text
+# nisar
 aws codebuild start-build --profile="${AWS_PROFILE}" \
 --project-name "${CODEBUILD_PROJECT}" \
 --region "us-west-2" \

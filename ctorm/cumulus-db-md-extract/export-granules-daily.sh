@@ -1,5 +1,7 @@
 set -euo pipefail
 
+# Takes slice TSV files and creates .jsonl files out of the cumulus DB
+
 S3_PREFIX="s3://${CTORM_BUCKET}/cumulus-granules/${DUMP_SUBDIR}"
 FAILED_SLICES_FILE="failed_slices_daily.tsv"
 
