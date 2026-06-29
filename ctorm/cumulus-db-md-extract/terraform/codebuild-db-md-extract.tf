@@ -306,6 +306,16 @@ resource "aws_codebuild_project" "cumulus_db_md_extract" {
       name  = "CTORM_S3_ROLE_ARN"
       value = var.db_md_extract_ctorm_s3_role_arn
     }
+
+    environment_variable {
+      name  = "COLLECTION"
+      value = ""
+    }
+
+    environment_variable {
+      name  = "SLICES_S3_URI"
+      value = ""
+    }
   }
 
   vpc_config {

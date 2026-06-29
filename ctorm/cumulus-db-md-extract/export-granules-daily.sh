@@ -11,7 +11,7 @@ while IFS=$'\t' read -r COLLECTION YYYYMMDD GRANULE_COUNT FILE_COUNT; do
     continue
   fi
 
-  YYYY="${YYYYMMDD:0:4)"
+  YYYY="${YYYYMMDD:0:4}"
   YYYYMM="${YYYYMMDD:0:6}"
   SAFE_COLLECTION=$(echo "$COLLECTION" | tr -c 'A-Za-z0-9._-' '_')
   S3_URI="${S3_PREFIX}/${SAFE_COLLECTION}/${YYYY}/${YYYYMM}/${YYYYMMDD}.jsonl.gz"

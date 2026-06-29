@@ -17,4 +17,4 @@ export AWS_ACCESS_KEY_ID="$(echo "${CREDS_JSON}" | jq -r '.Credentials.AccessKey
 export AWS_SECRET_ACCESS_KEY="$(echo "${CREDS_JSON}" | jq -r '.Credentials.SecretAccessKey')"
 export AWS_SESSION_TOKEN="$(echo "${CREDS_JSON}" | jq -r '.Credentials.SessionToken')"
 
-aws sts get-caller-identity >&2
+# aws sts get-caller-identity >&2

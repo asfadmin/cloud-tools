@@ -303,8 +303,9 @@ data "aws_iam_policy_document" "cumulus_db_md_extract_upload" {
     effect = "Allow"
 
     actions = [
-      "s3:PutObject",
       "s3:AbortMultipartUpload",
+      "s3:GetObject",
+      "s3:PutObject",
     ]
 
     resources = [

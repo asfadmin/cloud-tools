@@ -108,16 +108,34 @@ export AWS_PROFILE="cumulus-uat-6921"
 export AWS_REGION="us-west-2"
 export CODEBUILD_PROJECT="$(terraform output -state="${STATEFILE}" -raw cumulus_db_md_extract_codebuild_project_name)"
 
+# You can do one collection at a time, many in parallel if necessary: 
+export COLLECTION="OPERA_L2_RTC-S1_V1"
+
 # start build:
 BUILD_ID="$(
   aws codebuild start-build \
     --project-name "${CODEBUILD_PROJECT}" \
     --region "${AWS_REGION}" \
+    --environment-variables-override name=COLLECTION,value="${COLLECTION}",type=PLAINTEXT \
     --query 'build.id' \
     --output text
 )"
 
 echo "${BUILD_ID}"
+
+# Or start build specifying a custom slices.tsv file from S3:
+# BUILD_ID="$(
+   aws codebuild start-build \
+     --project-name "${CODEBUILD_PROJECT}" \
+     --region "${AWS_REGION}" \
+     --environment-variables-override '[
+        {"name": "SLICES_S3_URI", "value": "s3://ctorm-scratch/cumulus-granules/opera/slices_daily-OPERA_L2_RTC-S1_V1-20170910-20181203.tsv", "type": "PLAINTEXT"},
+        {"name": "COLLECTION", "value": "OPERA_L2_RTC-S1_V1", "type": "PLAINTEXT"}
+    ]' \
+     --query 'build.id' \
+     --output text
+# )"
+
 
 # get status:
 aws codebuild batch-get-builds \
