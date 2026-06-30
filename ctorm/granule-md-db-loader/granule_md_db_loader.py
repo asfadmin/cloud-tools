@@ -3,10 +3,10 @@ import gzip
 import json
 import logging
 import os
+import random
 import sys
 import time
 from decimal import Decimal
-import random
 
 import boto3
 from botocore.config import Config
@@ -153,7 +153,6 @@ def main():
 
     # Walk through the bucket objects
     for key in jsongz_list:
-
         log.info("Processing s3://%s/%s", bucket_name, key)
 
         # Download and decompress the file
