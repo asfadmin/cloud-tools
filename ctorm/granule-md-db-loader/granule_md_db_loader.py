@@ -6,6 +6,7 @@ import os
 import sys
 import time
 from decimal import Decimal
+import random
 
 import boto3
 from botocore.config import Config
@@ -13,7 +14,7 @@ from botocore.config import Config
 # Configure logging
 fmt = "%(asctime)s [%(levelname)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=fmt)
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class PartitionRateLimiter:
@@ -67,18 +68,18 @@ def handle_file(
                 # DynamoDB compatibility
                 item = json.loads(line, parse_float=Decimal)
             except Exception as e:
-                logger.error("Failed to parse JSON line: %s", e)
+                log.error("Failed to parse JSON line: %s", e)
                 continue
 
             # Add/modify fields if needed
-            newdate = datetime.datetime.utcnow().isoformat() + "Z"
+            newdate = datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
             item["imported_at"] = newdate
 
             # Ensure partition and sort keys are present
             pk = item.get("pk")
             sk = item.get("sk")
             if not pk or not sk:
-                logger.warning(
+                log.warning(
                     "Skipping record missing pk/sk: %s",
                     item.get("granule_id"),
                 )
@@ -101,7 +102,7 @@ def main():
     prefix = os.environ.get("PREFIX", "cumulus-granules/")
 
     if not table_name:
-        logger.error("TABLE_NAME environment variable is required.")
+        log.error("TABLE_NAME environment variable is required.")
         sys.exit(1)
 
     s3 = boto3.client("s3")
@@ -117,7 +118,7 @@ def main():
     dynamodb = boto3.resource("dynamodb", config=retry_config)
     dyndb_table = dynamodb.Table(table_name)
 
-    logger.info(
+    log.info(
         "Starting import from s3://%s/%s into DynamoDB table %s",
         bucket_name,
         prefix,
@@ -134,55 +135,63 @@ def main():
     # threshold (850 writes/sec per pk)
     rate_limiter = PartitionRateLimiter(max_rate_per_sec=850)
 
-    # Walk through the bucket objects
+    # create random list of .json.gz objects:
+    # This will alleviate writing to the same partition for several files in a row.
+    jsongz_list = []
     for page in pages:
         if "Contents" not in page:
             continue
-
         for obj in page["Contents"]:
             key = obj["Key"]
             if not key.endswith(".jsonl.gz"):
                 continue
-
-            logger.info("Processing s3://%s/%s", bucket_name, key)
+            jsongz_list.append(key)
             total_files += 1
 
-            # Download and decompress the file
-            local_path = "/tmp/temp.jsonl.gz"
-            try:
-                s3.download_file(bucket_name, key, local_path)
-            except Exception as e:
-                logger.error(
-                    "Failed to download s3://{%s}/%s: %s",
-                    bucket_name,
-                    key,
-                    e,
-                )
-                continue
+    total_files = len(jsongz_list)
+    random.shuffle(jsongz_list)
 
-            # Open, decompress and parse
-            records_in_file = 0
-            try:
-                records_in_file, total_records = handle_file(
-                    local_path,
-                    dyndb_table,
-                    rate_limiter,
-                    records_in_file,
-                    total_records,
-                )
+    # Walk through the bucket objects
+    for key in jsongz_list:
 
-                logger.info(
-                    "Successfully imported %s records from %s",
-                    records_in_file,
-                    key,
-                )
-            except Exception as e:
-                logger.error("Error processing file %s: %s", key, e)
-            finally:
-                if os.path.exists(local_path):
-                    os.remove(local_path)
+        log.info("Processing s3://%s/%s", bucket_name, key)
 
-    logger.info(
+        # Download and decompress the file
+        local_path = "/tmp/temp.jsonl.gz"
+        try:
+            s3.download_file(bucket_name, key, local_path)
+        except Exception as e:
+            log.error(
+                "Failed to download s3://{%s}/%s: %s",
+                bucket_name,
+                key,
+                e,
+            )
+            continue
+
+        # Open, decompress and parse
+        records_in_file = 0
+        try:
+            records_in_file, total_records = handle_file(
+                local_path,
+                dyndb_table,
+                rate_limiter,
+                records_in_file,
+                total_records,
+            )
+
+            log.info(
+                "Successfully imported %s records from %s",
+                records_in_file,
+                key,
+            )
+        except Exception as e:
+            log.error("Error processing file %s: %s", key, e)
+        finally:
+            if os.path.exists(local_path):
+                os.remove(local_path)
+
+    log.info(
         "Import complete. Processed %s files, imported %s total records.",
         total_files,
         total_records,

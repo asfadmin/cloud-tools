@@ -22,8 +22,8 @@ resource "aws_dynamodb_table" "granules" {
   # billing_mode = "PROVISIONED" # Temporarily switch to PROVISIONED for bulk load
   billing_mode = var.granule_table_billing_mode
 
-  read_capacity  = var.granule_table_billing_mode == "PROVISIONED" ? var.granule_table_write_capacity : null
-  write_capacity = var.granule_table_billing_mode == "PROVISIONED" ? 5 : null
+  read_capacity  = var.granule_table_billing_mode == "PROVISIONED" ? 5 : null
+  write_capacity = var.granule_table_billing_mode == "PROVISIONED" ? var.granule_table_write_capacity : null
   hash_key       = "pk"
   range_key      = "sk"
 
@@ -53,8 +53,8 @@ resource "aws_dynamodb_table" "granules" {
     range_key       = "gsi1sk"
     projection_type = "ALL"
 
-    read_capacity  = var.granule_table_billing_mode == "PROVISIONED" ? var.granule_table_write_capacity : null
-    write_capacity = var.granule_table_billing_mode == "PROVISIONED" ? 5 : null
+    read_capacity  = var.granule_table_billing_mode == "PROVISIONED" ? 5 : null
+    write_capacity = var.granule_table_billing_mode == "PROVISIONED" ? var.granule_table_write_capacity : null
   }
 }
 
