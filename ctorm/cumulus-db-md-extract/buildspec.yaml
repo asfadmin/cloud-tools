@@ -1,0 +1,73 @@
+version: 0.2
+env:
+  variables:
+    AWS_DEFAULT_REGION: "us-west-2"
+  secrets-manager:
+    PGHOST: "${DB_SECRET_ARN}:host"
+    PGUSER: "${DB_SECRET_ARN}:username"
+    PGPASSWORD: "${DB_SECRET_ARN}:password"
+    PGDATABASE: "${DB_SECRET_ARN}:database"
+
+phases:
+  install:
+    commands:
+      - echo "Inspecting build image..."
+      - cat /etc/os-release || true
+      - aws --version || true
+      - jq --version || true
+      - unzip -v | head -n 2 || true
+      - psql --version || true
+      - echo "Installing required packages if missing..."
+      - |
+        if ! command -v jq >/dev/null 2>&1; then
+          yum install -y jq
+        fi
+      - |
+        if ! command -v unzip >/dev/null 2>&1; then
+          yum install -y unzip
+        fi
+      - |
+        if ! command -v psql >/dev/null 2>&1; then
+          echo "psql not found; trying PostgreSQL client package installs..."
+
+          yum install -y postgresql15 \
+            || yum install -y postgresql14 \
+            || yum install -y postgresql13 \
+            || yum install -y postgresql12 \
+            || yum install -y postgresql \
+            || {
+              echo "Unable to install psql from enabled yum repositories."
+              echo "Available postgres-related packages:"
+              yum search postgresql || true
+              exit 1
+            }
+        fi
+      - psql --version
+      - aws --version
+
+  pre_build:
+    commands:
+      - ls -lah
+      - chmod +x generate-slices-daily.sh export-granules-daily.sh test-s3-cp.sh refresh-ctorm-upload-role.sh
+      - |
+        echo 'Before assuming role: '
+      - aws sts get-caller-identity
+      - |
+        echo "Assuming ctorm upload role..."
+        source ./refresh-ctorm-upload-role.sh
+      - |
+        echo 'After assuming role: '
+        aws sts get-caller-identity
+
+
+  build:
+    commands:
+      # fail fast if we can't actually copy to S3:
+      - ./test-s3-cp.sh
+
+      - ./generate-slices-daily.sh
+      - ./export-granules-daily.sh
+  post_build:
+    commands:
+      - unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+      - echo "Build complete."
