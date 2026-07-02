@@ -1,0 +1,25 @@
+[ctorm]
+
+maturity = "dev"
+dyndb_tablename = "ctorm-dev-granules"
+
+granule_goal = 5000
+
+
+
+[[ctorm.msg_collections]]
+collection_name = "NISAR_EA_L1"
+num_of_granules = 150
+start_date = 202510
+end_date = 202606
+[[ctorm.msg_collections]]
+collection_name = "OPERA_L2_RTC-S1_V1"
+num_of_granules = 20
+start_date = 201602
+end_date = 202606
+[[ctorm.msg_collections]]
+collection_name = "OPERA_L2_CSLC-S1_V1"
+num_of_granules = 10
+start_date = 201601
+end_date = 202509
+
