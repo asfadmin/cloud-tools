@@ -902,6 +902,53 @@ class DynamoDBTable(Resource):
         client.delete_table(TableName=self.name)
 
 
+class EC2Instance(StateResource):
+    TYPE_FILTER = "ec2:instance"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("ec2")
+        paginator = client.get_paginator("describe_instances")
+
+        return [
+            cls(
+                name,
+                entry["InstanceId"],
+                state=entry.get("State", {}).get("Name"),
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Name="tag:Name",
+                        Values=[name_matcher.prefix + "*"],
+                    ),
+                    dict(
+                        Name="instance-state-name",
+                        Values=[
+                            "pending",
+                            "running",
+                            "shutting-down",
+                            "stopping",
+                            "stopped",
+                        ],
+                    ),
+                ],
+            )
+            for reservation in response.get("Reservations", ())
+            for entry in reservation.get("Instances", ())
+            if name_matcher.matches(name := _tag_dict(entry.get("Tags", ())).get("Name"))
+        ]
+
+    def delete(self, get_client):
+        client = get_client("ec2")
+        # NOTE: Could actually do a bulk delete here
+        client.terminate_instances(InstanceIds=[self.id])
+
+    def get_display_name(self):
+        return f"{self.id} {self.name}"
+
+
 class ECRRepository(Resource):
     """Possible workflow resource. Not part of core."""
 
@@ -1331,6 +1378,38 @@ class LambdaLayerVersion(VersionedResource):
             LayerName=self.name,
             VersionNumber=int(self.id),
         )
+
+
+class LaunchTemplate(Resource):
+    TYPE_FILTER = "ec2:launch-template"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("ec2")
+        paginator = client.get_paginator("describe_launch_templates")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                entry["LaunchTemplateId"],
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Name="launch-template-name",
+                        Values=[name_matcher.prefix + "*"],
+                    ),
+                ],
+            )
+            for entry in response.get("LaunchTemplates", ())
+            if name_matcher.matches(name := entry["LaunchTemplateName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("ec2")
+        client.delete_launch_template(LaunchTemplateId=self.id)
 
 
 class NetworkInterface(StateResource):
@@ -1861,6 +1940,8 @@ class CumulusDestroyer:
         BatchJobQueue,
         BatchComputeEnvironment,
         BatchJobDefinition,
+        LaunchTemplate,
+        EC2Instance,
         ECSCluster,
         ECSTaskDefinition,
         ECRRepository,
