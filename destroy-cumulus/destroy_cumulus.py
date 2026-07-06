@@ -110,6 +110,12 @@ class Arn:
                 # arn:aws:iam::123456789012:role/ngap/system/s3-all-region-access-role
                 self.id = rest
                 self.name = rest.split("/")[-1]
+            elif self.service == "elasticloadbalancing" and self.type == "loadbalancer":
+                # Special case for load balancers where arns look like this:
+                # arn:aws:elasticloadbalancing:us-west-2:123456789101:loadbalancer/app/rew-cumulus-uat2-iceberg/6680b609e7f9d62a
+                rest_parts = rest.split("/")
+                self.name = rest_parts[1]
+                self.id = rest_parts[2]
             else:
                 self.name, *rest = rest.split("/", 1)
                 self.id = "".join(rest)
@@ -320,6 +326,7 @@ class TaggedResourceCollector:
                 "apigateway:restapis-stages",
                 "application-autoscaling:scalable-target",
                 "ecs:service",
+                "elasticloadbalancing:listener",
             ):
                 log.debug(
                     "Skipping arn '%s' for type '%s' as it is a known child "
@@ -1086,6 +1093,52 @@ class ElasticsearchDomain(Resource):
     def delete(self, get_client):
         client = get_client("opensearch")
         client.delete_domain(DomainName=self.name)
+
+
+class ELBLoadBalancer(Resource):
+    TYPE_FILTER = "elasticloadbalancing:loadbalancer"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("elbv2")
+        paginator = client.get_paginator("describe_load_balancers")
+
+        return [
+            # ruff hint
+            cls.from_arn(Arn(entry["LoadBalancerArn"]))
+            for response in paginator.paginate()
+            for entry in response.get("LoadBalancers", ())
+            if name_matcher.matches(entry["LoadBalancerName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("elbv2")
+        client.delete_load_balancer(LoadBalancerArn=str(self.arn))
+
+
+class ELBTargetGroup(Resource):
+    TYPE_FILTER = "elasticloadbalancing:targetgroup"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("elbv2")
+        paginator = client.get_paginator("describe_target_groups")
+
+        # TargetGroupNames are unlikely to match because they are mostly
+        # overwritten by a time stamp e.g. rew-cu20260626220724919600000002
+        # However, they are discoverable through the resource tagging API.
+
+        return [
+            # ruff hint
+            cls.from_arn(Arn(entry["TargetGroupArn"]))
+            for response in paginator.paginate()
+            for entry in response.get("TargetGroups", ())
+            if name_matcher.matches(entry["TargetGroupName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("elbv2")
+        client.delete_target_group(TargetGroupArn=str(self.arn))
 
 
 class EventSourceMapping(Resource):
@@ -1945,6 +1998,8 @@ class CumulusDestroyer:
         ECSCluster,
         ECSTaskDefinition,
         ECRRepository,
+        ELBLoadBalancer,
+        ELBTargetGroup,
         RDSCluster,
         RDSClusterParameterGroup,
         RDSSubnetGroup,
