@@ -550,6 +550,112 @@ class AthenaWorkGroup(Resource):
         )
 
 
+class BatchComputeEnvironment(StateResource):
+    TYPE_FILTER = "batch:compute-environment"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("batch")
+        paginator = client.get_paginator("describe_compute_environments")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                name,
+                state=entry["state"],
+                arn=Arn(entry["computeEnvironmentArn"]),
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
+            )
+            for response in paginator.paginate()
+            for entry in response.get("computeEnvironments", ())
+            if name_matcher.matches(name := entry["computeEnvironmentName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("batch")
+        if self.state == "ENABLED":
+            client.update_compute_environment(
+                computeEnvironment=str(self.arn),
+                state="DISABLED",
+            )
+        # This can fail silently if the service role has already been deleted
+        client.delete_compute_environment(computeEnvironment=str(self.arn))
+
+
+class BatchJobDefinition(StateResource, VersionedResource):
+    TYPE_FILTER = "batch:job-definition"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("batch")
+        paginator = client.get_paginator("describe_job_definitions")
+
+        resources = [
+            # ruff hint
+            cls(
+                name,
+                str(entry["revision"]),
+                state=entry["status"],
+                arn=Arn(entry["jobDefinitionArn"]),
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
+            )
+            for response in paginator.paginate()
+            for entry in response.get("jobDefinitions", ())
+            if name_matcher.matches(name := entry["jobDefinitionName"])
+        ]
+        return resources
+
+    def delete(self, get_client):
+        client = get_client("batch")
+        client.deregister_job_definition(jobDefinition=str(self.arn))
+
+
+class BatchJobQueue(StateResource):
+    TYPE_FILTER = "batch:job-queue"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("batch")
+        paginator = client.get_paginator("describe_job_queues")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                name,
+                state=entry["state"],
+                arn=Arn(entry["jobQueueArn"]),
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
+            )
+            for response in paginator.paginate()
+            for entry in response.get("jobQueues", ())
+            if name_matcher.matches(name := entry["jobQueueName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("batch")
+        if self.state == "ENABLED":
+            client.update_job_queue(
+                jobQueue=str(self.arn),
+                state="DISABLED",
+                computeEnvironmentOrder=[],
+            )
+        client.delete_job_queue(jobQueue=str(self.arn))
+
+
 class Bucket(Resource):
     TYPE_FILTER = "s3"
 
@@ -1752,6 +1858,9 @@ class CumulusDestroyer:
         SNSTopic,
         SQSQueue,
         DynamoDBTable,
+        BatchJobQueue,
+        BatchComputeEnvironment,
+        BatchJobDefinition,
         ECSCluster,
         ECSTaskDefinition,
         ECRRepository,
