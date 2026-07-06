@@ -230,6 +230,9 @@ class Resource:
     def __eq__(self, other):
         return (self.__class__, self.id) == (other.__class__, other.id)
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r}, id={self.id!r})"
+
 
 class VersionedResource(Resource, register=False):
     """A resource where the arn ends with a ':<VersionNumber>'"""
