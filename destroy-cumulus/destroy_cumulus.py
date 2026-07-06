@@ -708,6 +708,28 @@ class Bucket(Resource):
         client.delete_bucket(Bucket=self.name)
 
 
+class Certificate(Resource):
+    TYPE_FILTER = "acm:certificate"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("acm")
+        paginator = client.get_paginator("list_certificates")
+
+        return [
+            cls.from_arn(
+                Arn(entry["CertificateArn"]),
+            )
+            for response in paginator.paginate()
+            for entry in response.get("CertificateSummaryList", ())
+            if name_matcher.matches(entry["DomainName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("acm")
+        client.delete_certificate(CertificateArn=str(self.arn))
+
+
 class CloudFormationStack(Resource):
     TYPE_FILTER = "cloudformation:stack"
 
@@ -2047,6 +2069,7 @@ class CumulusDestroyer:
     RESOURCE_DESTRUCTION_ORDER = [
         CloudFormationStack,
         ApiGateway,
+        Certificate,
         LambdaFunction,
         LambdaLayerVersion,
         StepFunction,
