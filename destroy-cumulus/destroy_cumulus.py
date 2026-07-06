@@ -234,6 +234,24 @@ class Resource:
         return f"{self.__class__.__name__}(name={self.name!r}, id={self.id!r})"
 
 
+class StateResource(Resource, register=False):
+    """A resource with a state attribute"""
+
+    def __init__(self, name, id, *, state=None, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.state = state
+
+    @classmethod
+    def from_arn(cls, arn, *, state=None, tags=()):
+        return cls(arn.name, arn.id, state=state, arn=arn, tags=tags)
+
+    def display(self, *args, **kwargs):
+        lines = super().display(*args, **kwargs)
+        if self.state:
+            lines[0] = lines[0] + f" ({self.state})"
+        return lines
+
+
 class VersionedResource(Resource, register=False):
     """A resource where the arn ends with a ':<VersionNumber>'"""
 
@@ -803,11 +821,11 @@ class ECRRepository(Resource):
         )
 
 
-class ECSCluster(Resource):
+class ECSCluster(StateResource):
     TYPE_FILTER = "ecs:cluster"
 
-    def __init__(self, name, id, *, services=(), arn=None, tags=()):
-        super().__init__(name, id, arn=arn, tags=tags)
+    def __init__(self, name, id, *, services=(), state=None, arn=None, tags=()):
+        super().__init__(name, id, state=state, arn=arn, tags=tags)
         self.services = sorted(
             services,
             key=lambda res: (res.name, res.id),
@@ -872,12 +890,8 @@ class ECSService(Resource):
         )
 
 
-class ECSTaskDefinition(VersionedResource):
+class ECSTaskDefinition(StateResource, VersionedResource):
     TYPE_FILTER = "ecs:task-definition"
-
-    def __init__(self, name, id, *, status=None, arn=None, tags=()):
-        super().__init__(name, id, arn=arn, tags=tags)
-        self.status = status
 
     @classmethod
     def gather(cls, get_client, name_matcher, _options):
@@ -885,7 +899,7 @@ class ECSTaskDefinition(VersionedResource):
         paginator = client.get_paginator("list_task_definitions")
 
         return [
-            cls(arn.name, arn.id, status=status, arn=arn)
+            cls(arn.name, arn.id, state=status, arn=arn)
             for status in ("ACTIVE", "INACTIVE", "DELETE_IN_PROGRESS")
             for response in paginator.paginate(status=status)
             for arn_ in response["taskDefinitionArns"]
@@ -894,16 +908,11 @@ class ECSTaskDefinition(VersionedResource):
 
     def delete(self, get_client):
         client = get_client("ecs")
-        if self.status != "DELETE_IN_PROGRESS":
+        if self.state != "DELETE_IN_PROGRESS":
             client.deregister_task_definition(taskDefinition=str(self.arn))
         # NOTE: Could actually do a bulk delete here
         client.delete_task_definitions(taskDefinitions=[str(self.arn)])
 
-    def display(self, *args, **kwargs):
-        lines = super().display(*args, **kwargs)
-        if self.status:
-            lines[0] = lines[0] + f" ({self.status})"
-        return lines
 
 
 class ElasticsearchDomain(Resource):
@@ -1218,12 +1227,8 @@ class LambdaLayerVersion(VersionedResource):
         )
 
 
-class NetworkInterface(Resource):
+class NetworkInterface(StateResource):
     TYPE_FILTER = "ec2:network-interface"
-
-    def __init__(self, name, id, status, *, arn=None, tags=()):
-        super().__init__(name, id, arn=arn, tags=tags)
-        self.status = status
 
     def delete(self, get_client):
         client = get_client("ec2")
@@ -1231,11 +1236,6 @@ class NetworkInterface(Resource):
 
     def get_display_name(self):
         return self.name or self.id
-
-    def display(self, *args, **kwargs):
-        lines = super().display(*args, **kwargs)
-        lines[0] = lines[0] + f" ({self.status})"
-        return lines
 
 
 class RDSCluster(Resource):
@@ -1304,7 +1304,7 @@ class RDSSubnetGroup(Resource):
         client.delete_db_subnet_group(DBSubnetGroupName=self.name)
 
 
-class Secret(Resource):
+class Secret(StateResource):
     TYPE_FILTER = "secretsmanager:secret"
 
     @classmethod
@@ -1313,8 +1313,19 @@ class Secret(Resource):
         paginator = client.get_paginator("list_secrets")
 
         return [
-            cls.from_arn(Arn(entry["ARN"]), tags=entry.get("Tags", ()))
-            for response in paginator.paginate()
+            cls.from_arn(
+                Arn(entry["ARN"]),
+                state="DELETED" if "DeletedDate" in entry else None,
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Key="name",
+                        Values=[name_matcher.prefix],
+                    ),
+                ]
+            )
             for entry in response.get("SecretList", ())
             if name_matcher.matches(entry["Name"])
         ]
@@ -1390,7 +1401,7 @@ class SecurityGroup(Resource):
                 network_interface = NetworkInterface(
                     entry["Description"],
                     entry["NetworkInterfaceId"],
-                    entry["Status"],
+                    state=entry["Status"],
                     tags=entry.get("TagSet", ()),
                 )
                 for group_entry in entry["Groups"]:
