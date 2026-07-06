@@ -1074,6 +1074,76 @@ class ECSTaskDefinition(StateResource, VersionedResource):
         client.delete_task_definitions(taskDefinitions=[str(self.arn)])
 
 
+class EFSFileSystem(Resource):
+    TYPE_FILTER = "elasticfilesystem:file-system"
+
+    def __init__(self, name, id, mount_targets, *, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.mount_targets = sorted(
+            mount_targets,
+            key=lambda res: (res.name, res.id),
+        )
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("efs")
+        paginator = client.get_paginator("describe_file_systems")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                entry["FileSystemId"],
+                mount_targets=[],
+                arn=Arn(entry["FileSystemArn"]),
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate()
+            for entry in response.get("FileSystems", ())
+            if name_matcher.matches(name := entry["Name"])
+        ]
+
+    def load(self, get_client):
+        client = get_client("efs")
+        paginator = client.get_paginator("describe_file_systems")
+        target_paginator = client.get_paginator("describe_mount_targets")
+
+        for response in paginator.paginate(FileSystemId=self.id):
+            for entry in response.get("FileSystems", ()):
+                if entry["FileSystemId"] != self.id:
+                    continue
+
+                self.name = entry["Name"]
+                self.tags = _tag_dict(entry.get("Tags", ()))
+
+        self.mount_targets = sorted(
+            [
+                EFSMountTarget(
+                    entry["MountTargetId"],
+                    entry["MountTargetId"],
+                    state=entry["LifeCycleState"],
+                )
+                for response in target_paginator.paginate(FileSystemId=self.id)
+                for entry in response.get("MountTargets", ())
+            ],
+            key=lambda res: (res.name, res.id),
+        )
+
+    def delete(self, get_client):
+        client = get_client("efs")
+        client.delete_file_system(FileSystemId=self.id)
+
+    def get_dependencies(self):
+        return self.mount_targets
+
+
+class EFSMountTarget(StateResource):
+    TYPE_FILTER = "elasticfilesystem:mount-target"
+
+    def delete(self, get_client):
+        client = get_client("efs")
+        client.delete_mount_target(MountTargetId=self.id)
+
 
 class ElasticsearchDomain(Resource):
     """These are expensive: $$"""
@@ -1998,6 +2068,7 @@ class CumulusDestroyer:
         ECSCluster,
         ECSTaskDefinition,
         ECRRepository,
+        EFSFileSystem,
         ELBLoadBalancer,
         ELBTargetGroup,
         RDSCluster,
