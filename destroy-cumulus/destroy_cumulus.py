@@ -1241,21 +1241,109 @@ class NetworkInterface(StateResource):
 class RDSCluster(Resource):
     TYPE_FILTER = "rds:cluster"
 
+    def __init__(self, name, id, db_instances, *, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.db_instances = sorted(
+            db_instances,
+            key=lambda res: (res.name, res.id),
+        )
+
+    @classmethod
+    def from_arn(cls, arn, *, tags=()):
+        return cls(arn.name, arn.id, [], arn=arn, tags=tags)
+
     @classmethod
     def gather(cls, get_client, name_matcher, _options):
         client = get_client("rds")
         paginator = client.get_paginator("describe_db_clusters")
 
         return [
-            cls.from_arn(Arn(entry["DBClusterArn"]), tags=entry.get("TagList", ()))
-            for response in paginator.paginate()
+            cls(
+                id,
+                id,
+                db_instances=[],
+                arn=Arn(entry["DBClusterArn"]),
+                tags=entry.get("TagList", ()),
+            )
+            for response in paginator.paginate(
+                # NOTE(07/01/26): Filters are supported, but wildcards are not
+            )
             for entry in response.get("DBClusters", ())
-            if name_matcher.matches(entry["DBClusterIdentifier"])
+            if name_matcher.matches(id := entry["DBClusterIdentifier"])
         ]
+
+    def load(self, get_client):
+        self.load_bulk(get_client, [self])
+
+    @classmethod
+    def load_bulk(cls, get_client, resources):
+        client = get_client("rds")
+        paginator = client.get_paginator("describe_db_clusters")
+        instance_paginator = client.get_paginator("describe_db_instances")
+
+        db_clusters_by_id = {resource.id: resource for resource in resources}
+        db_cluster_ids = list(db_clusters_by_id.keys())
+
+        for response in paginator.paginate(
+            Filters=[
+                dict(
+                    Name="db-cluster-id",
+                    Values=db_cluster_ids,
+                ),
+            ],
+        ):
+            for entry in response.get("DBClusters", ()):
+                cluster = db_clusters_by_id[entry["DBClusterIdentifier"]]
+
+                cluster.db_instances.clear()
+                cluster.tags = _tag_dict(entry.get("TagList", ()))
+
+        for response in instance_paginator.paginate(
+            Filters=[
+                dict(
+                    Name="db-cluster-id",
+                    Values=db_cluster_ids,
+                ),
+            ],
+        ):
+            for entry in response.get("DBInstances", ()):
+                db_instance = RDSClusterInstance(
+                    entry["DBInstanceIdentifier"],
+                    entry["DBInstanceIdentifier"],
+                    tags=entry.get("TagList", ()),
+                )
+                cluster = db_clusters_by_id.get(entry["DBClusterIdentifier"])
+
+                if not cluster:
+                    continue
+
+                cluster.db_instances.append(db_instance)
+
+        for cluster in resources:
+            cluster.db_instances.sort(
+                key=lambda res: (res.name, res.id),
+            )
 
     def delete(self, get_client):
         client = get_client("rds")
-        client.delete_db_cluster(DBClusterIdentifier=self.id, SkipFinalSnapshot=True)
+        client.delete_db_cluster(
+            DBClusterIdentifier=self.id,
+            SkipFinalSnapshot=True,
+        )
+
+    def get_dependencies(self):
+        return self.db_instances
+
+
+class RDSClusterInstance(Resource):
+    TYPE_FILTER = "rds:db"
+
+    def delete(self, get_client):
+        client = get_client("rds")
+        client.delete_db_instance(
+            DBInstanceIdentifier=self.id,
+            SkipFinalSnapshot=True,
+        )
 
 
 class RDSClusterParameterGroup(Resource):
@@ -1596,6 +1684,7 @@ class ResourceSet:
     def __init__(self, iterable=()):
         self._resources = {}
         self._resources_by_class = defaultdict(set)
+        self._dependencies = {}
         for item in iterable:
             self.add(item)
 
@@ -1610,8 +1699,23 @@ class ResourceSet:
             self._resources_by_class[resource.__class__].discard(resource)
             resource.tags.update(old.tags)
 
-        self._resources[resource] = resource
+        if resource not in self._dependencies:
+            self._resources[resource] = resource
         self._resources_by_class[resource.__class__].add(resource)
+
+        for dependency in resource.get_dependencies():
+            self._resources.pop(dependency, None)
+            self._dependencies[dependency] = dependency
+            self.add(dependency)
+
+    def resolve_dependencies(self):
+        # Needs to be called if dependencies are loaded after resources are
+        # added to the set.
+        for resource in list(self):
+            for dependency in resource.get_dependencies():
+                self._resources.pop(dependency, None)
+                self._dependencies[dependency] = dependency
+                self.add(dependency)
 
     def iter_by_class(self):
         for key, values in self._resources_by_class.items():
@@ -1778,6 +1882,8 @@ class CumulusDestroyer:
 
         for cls, resources in resource_set.iter_by_class():
             cls.load_bulk(self.client, resources)
+
+        resource_set.resolve_dependencies()
 
         end = time.perf_counter()
         log.debug("Total time gathering was %.1fs", end - start)

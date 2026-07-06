@@ -1,4 +1,12 @@
-from destroy_cumulus import Bucket, LambdaFunction, ResourceSet
+from destroy_cumulus import (
+    Bucket,
+    LambdaFunction,
+    NetworkInterface,
+    RDSCluster,
+    RDSClusterInstance,
+    ResourceSet,
+    SecurityGroup,
+)
 
 
 def test_add_tag_merge():
@@ -31,6 +39,44 @@ def test_add_tag_merge():
     }
 
 
+def test_add_dependencies():
+    resource_set = ResourceSet()
+
+    instance = RDSClusterInstance("foo", "foo")
+    cluster = RDSCluster(
+        "bar",
+        "bar",
+        db_instances=[instance],
+    )
+
+    resource_set.add(instance)
+    resource_set.add(cluster)
+    resource_set.add(instance)
+
+    assert list(resource_set) == [cluster]
+
+
+def test_resolve_dependencies():
+    resource_set = ResourceSet()
+
+    instance = RDSClusterInstance("foo", "foo")
+    cluster = RDSCluster(
+        "bar",
+        "bar",
+        db_instances=[],
+    )
+
+    resource_set.add(instance)
+    resource_set.add(cluster)
+
+    assert list(resource_set) == [instance, cluster]
+
+    cluster.db_instances.append(instance)
+    resource_set.resolve_dependencies()
+
+    assert list(resource_set) == [cluster]
+
+
 def test_iter_by_class():
     resource_set = ResourceSet()
 
@@ -42,4 +88,40 @@ def test_iter_by_class():
     assert list(resource_set.iter_by_class()) == [
         (Bucket, {Bucket("foo", "foo"), Bucket("bar", "bar")}),
         (LambdaFunction, {LambdaFunction("test-lambda", "test-lambda")}),
+    ]
+
+
+def test_iter_by_class_dependencies():
+    resource_set = ResourceSet()
+
+    security_group_1 = SecurityGroup(
+        "foo",
+        "foo",
+        network_interfaces=[
+            NetworkInterface("bar", "bar", state="available"),
+            NetworkInterface("baz", "baz", state="available"),
+        ],
+    )
+    security_group_2 = SecurityGroup(
+        "qux",
+        "qux",
+        network_interfaces=[
+            NetworkInterface("bar", "bar", state="available"),
+            NetworkInterface("spam", "spam", state="available"),
+        ],
+    )
+
+    resource_set.add(security_group_1)
+    resource_set.add(security_group_2)
+
+    assert list(resource_set.iter_by_class()) == [
+        (SecurityGroup, {security_group_1, security_group_2}),
+        (
+            NetworkInterface,
+            {
+                NetworkInterface("bar", "bar", state="available"),
+                NetworkInterface("baz", "baz", state="available"),
+                NetworkInterface("spam", "spam", state="available"),
+            },
+        ),
     ]
