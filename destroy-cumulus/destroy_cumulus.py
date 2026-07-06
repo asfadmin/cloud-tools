@@ -1037,6 +1037,31 @@ class ECSCluster(StateResource):
             if name_matcher.matches((arn := Arn(arn_)).name)
         ]
 
+    def load(self, get_client):
+        self.load_bulk(get_client, [self])
+
+    @classmethod
+    def load_bulk(cls, get_client, resources):
+        client = get_client("ecs")
+
+        clusters_by_arn = {str(resource.arn): resource for resource in resources}
+
+        # Can't be paginated. Will accept up to 100 cluster ARNs
+        response = client.describe_clusters(
+            clusters=[str(resource.arn) for resource in resources],
+            include=["TAGS"],
+        )
+
+        for entry in response.get("clusters", ()):
+            cluster = clusters_by_arn[entry["clusterArn"]]
+
+            cluster.state = entry["status"]
+            cluster.tags = {
+                # ruff hint
+                tag["key"]: tag["value"]
+                for tag in entry.get("tags")
+            }
+
     def delete(self, get_client):
         client = get_client("ecs")
         client.delete_cluster(cluster=self.name)
