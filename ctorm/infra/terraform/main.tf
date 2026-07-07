@@ -9,7 +9,7 @@ resource "aws_sqs_queue" "granules_dlq" {
 
 resource "aws_sqs_queue" "granules" {
   name                       = "${var.name_prefix}-granules"
-  visibility_timeout_seconds = 180
+  visibility_timeout_seconds = var.granule_sqs_visibility_timeout_seconds
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.granules_dlq.arn

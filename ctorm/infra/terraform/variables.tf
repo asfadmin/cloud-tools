@@ -48,3 +48,9 @@ variable "granule_table_write_capacity" {
 #   type        = string
 #   description = "CodeBuild service role ARN from the remote/RDS account."
 # }
+
+variable "granule_sqs_visibility_timeout_seconds" {
+  type        = number
+  default     = 300
+  description = "Visibility timeout in seconds for the granule SQS"
+}

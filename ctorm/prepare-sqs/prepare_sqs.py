@@ -4,23 +4,29 @@ import json
 import logging
 import os
 import tomllib
-from dataclasses import dataclass, fields
+import uuid
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 import boto3
+from boto3.dynamodb.types import TypeDeserializer
+from cnm import CtormCnmSGenerator, CtormGranuleRow
+
+MAX_MSG_SIZE = 262144
+MAX_BATCH_SIZE = 1048576
+BATCH_PADDING = 130000
 
 fmt = "%(asctime)s [%(levelname)s] %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=fmt)
 log = logging.getLogger(__name__)
 
 
-class DecimalBegone(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            # Convert to int if whole number, otherwise float
-            return int(obj) if obj % 1 == 0 else float(obj)
-        return super(DecimalBegone, self).default(obj)
+def decimal_begone(obj: Any):
+    if isinstance(obj, Decimal):
+        # Convert to int if whole number, otherwise float
+        return int(obj) if obj % 1 == 0 else float(obj)
+    return obj
 
 
 @dataclass
@@ -31,6 +37,16 @@ class PrepSqsMsgCollectionCfg:
     end_date: int
 
 
+@dataclass
+class PrepSqsCfg:
+    dyndb_tablename: str
+    granule_goal: int
+    maturity: str
+    sqs_queue_url: str
+
+    msg_collections: list[dict]
+
+
 class PrepSqsMsgCollection:
     table = None
 
@@ -38,7 +54,8 @@ class PrepSqsMsgCollection:
         self.cfg = PrepSqsMsgCollectionCfg(**cfg)
 
         self.table = table
-
+        self.deserializer = TypeDeserializer()
+        self.cnm_s_generator = CtormCnmSGenerator()
         self.current_date = self.cfg.start_date
         self.excl_start_key: dict = {}
 
@@ -55,7 +72,7 @@ class PrepSqsMsgCollection:
         }
         if self.excl_start_key:
             qp["ExclusiveStartKey"] = self.excl_start_key
-        log.debug("Query params: %s", qp)
+        # log.debug("Query params: %s", qp)
         return qp
 
     def increment_curr_date(self):
@@ -76,59 +93,118 @@ class PrepSqsMsgCollection:
         self.excl_start_key = resp.get("LastEvaluatedKey", {})
 
     def query_dyndb(self, num_of_granules: int):
-        log.debug("Querying dyndb for %d granules", num_of_granules)
+        # log.debug("Querying dyndb for %d granules", num_of_granules)
         response = self.table.query(**self.get_query_params(num_of_granules))
         self._set_excl_start_key(response)
         if response.get("Count", 0) < num_of_granules:
             self.increment_curr_date()
 
-        return response.get("Items", [])
+        # Let's get rid of the decimal type.
+        for row in response["Items"]:
+            for fi in row.get("f", {}):
+                fi.update({k: decimal_begone(v) for k, v in fi.items()})
+            row.update({k: decimal_begone(v) for k, v in row.items()})
+        return response["Items"]
 
     def get_msg_list(self):
         msg_list = []
         while len(msg_list) < self.cfg.num_of_granules:
             items = self.query_dyndb(self.cfg.num_of_granules - len(msg_list))
             for item in items:
-                msg_list.append(convert_dyndb_item_to_cnm(item))
+                msg_list.append(self.convert_dyndb_item_to_cnm(item))
         return msg_list
 
-
-def convert_dyndb_item_to_cnm(item: dict):
-    log.debug("TODO: convert dyndb item to cnm")
-    return item
+    def convert_dyndb_item_to_cnm(self, item: dict):
+        return self.cnm_s_generator(CtormGranuleRow(**item))
 
 
-def package_msg(msgs: list):
-    json_bytes = json.dumps(msgs, cls=DecimalBegone).encode("utf-8")
+def package_msg(msgs: list) -> tuple:
+    json_bytes = json.dumps(msgs).encode("utf-8")
     b64_str = base64.b64encode(gzip.compress(json_bytes)).decode("utf-8")
+    msg_id = str(uuid.uuid4())
+    ATTRIBUTE_SIZE = 32
+    msg_size = len(b64_str.encode("utf-8") + msg_id.encode("utf-8")) + ATTRIBUTE_SIZE
 
-    log.debug("b64_str size: %s", len(b64_str))
-    if len(b64_str) > 262144:
+    log.debug(
+        "b64_str size: %s, %d%% of maximum",
+        msg_size,
+        round(msg_size / MAX_MSG_SIZE * 100),
+    )
+    if msg_size > MAX_MSG_SIZE:
         raise Exception("Message too large")
-    return b64_str
+    log.debug("msg_package: `%s...%s`", b64_str[0:20], b64_str[-10:])
+
+    outdict = {
+        "Id": msg_id,  # Must be unique within the batch
+        "MessageBody": b64_str,
+        "MessageAttributes": {
+            "ContentEncoding": {"DataType": "String", "StringValue": "gzip+base64"}
+        },
+    }
+    return outdict, msg_size
+
+
+def do_sqs_send(sqs_client, queue_url, entries):
+    if len(entries) == 0:
+        return True
+    response = sqs_client.send_message_batch(QueueUrl=queue_url, Entries=entries)
+    return len(response.get("Successful", [])) == len(entries)
 
 
 def main():
     with open(os.getenv("PREPARE_SQS_CFG_FILE", "config.toml"), "rb") as f:
         cfg = tomllib.load(f).get("ctorm")
+        cfg = PrepSqsCfg(**cfg)
+
     dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table(cfg.get("dyndb_tablename"))
+    table = dynamodb.Table(cfg.dyndb_tablename)
+    sqs = boto3.client("sqs")
+    sqs.set_queue_attributes(
+        QueueUrl=cfg.sqs_queue_url,
+        Attributes={"MaximumMessageSize": str(MAX_BATCH_SIZE)},
+    )
+
     collections = []
-    for coll in cfg.get("msg_collections", []):
+    for coll in cfg.msg_collections:
         collections.append(PrepSqsMsgCollection(coll, table))
 
     tot_granules = 0
-    while tot_granules < cfg.get("granule_goal", 0):
+    batch_size = 0
+    package_list = []
+    while tot_granules < cfg.granule_goal:
         msg_list = []
+
         for collection in collections:
             item_list = collection.get_msg_list()
 
             tot_granules += len(item_list)
             msg_list.extend(item_list)
 
-        msg_package = package_msg(msg_list)
-        # TODO: send sqs here.
-        log.debug("msg_package: %s...%s", msg_package[0:20], msg_package[-10:])
+        if len(msg_list) == 0:
+            log.info("No more granules to send")
+            break
+
+        msg_pkg, msg_size = package_msg(msg_list)
+        batch_size += msg_size
+        package_list.append(msg_pkg)
+        if len(package_list) == 10 or batch_size > (MAX_BATCH_SIZE - BATCH_PADDING):
+            log.debug(
+                "Sending batch of %d messages, batch size: %d, %d%% of max",
+                len(package_list),
+                batch_size,
+                int((batch_size / MAX_BATCH_SIZE) * 100),
+            )
+            result = do_sqs_send(sqs, cfg.sqs_queue_url, package_list)
+            log.debug("SQS result: %s", result)
+            package_list = []
+            batch_size = 0
+
+    if len(package_list) > 0:
+        # We'll send the last odd batch
+        result = do_sqs_send(sqs, cfg.sqs_queue_url, package_list)
+        log.debug("SQS result: %s", result)
+    log.info("Done sending messages")
+    log.info("Total granules: %d", tot_granules)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,100 @@
+Sample DynamoDB entry:
+
+```json
+{
+  "c": "OPERA_L2_CSLC-S1_V1",
+  "f": [
+    {
+      "uri": "s3://asf-cumulus-prod-opera-browse/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_low-res.png",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_low-res.png",
+      "size": 59570,
+      "type": "browse",
+      "checksum": "f05e959d82aa7e35d6d22500f44acde4",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-browse/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_low-res.png.md5",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_low-res.png.md5",
+      "size": 32,
+      "type": "metadata",
+      "checksum": "4ff047c36b4ed6321e53017354f048b5",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-browse/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE.png",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE.png",
+      "size": 249492,
+      "type": "browse",
+      "checksum": "7f7be76aa478482735f7be444c79060d",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-browse/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE.png.md5",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE.png.md5",
+      "size": 32,
+      "type": "metadata",
+      "checksum": "cc245af4e22fb0b8855d930b48569a51",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-browse/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_thumbnail.png",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_thumbnail.png",
+      "size": 909,
+      "type": "browse",
+      "checksum": "a5f25cd4ffde4f30c02d447d81c77cc7",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-browse/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_thumbnail.png.md5",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1_BROWSE_thumbnail.png.md5",
+      "size": 32,
+      "type": "metadata",
+      "checksum": "aa3a76f58f287e52074f5a5417a9e68e",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.h5",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.h5",
+      "size": 272217709,
+      "type": "data",
+      "checksum": "24c9e1ccdbbf3455d759f614f75d50f0",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.h5.md5",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.h5.md5",
+      "size": 32,
+      "type": "metadata",
+      "checksum": "6427cdc5edb7a938f56be558d47fa063",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.iso.xml",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.iso.xml",
+      "size": 221607,
+      "type": "metadata",
+      "checksum": "c85d56fdc14a818863d81842184403db",
+      "checksumType": "md5"
+    },
+    {
+      "uri": "s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1/OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.iso.xml.md5",
+      "name": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1.iso.xml.md5",
+      "size": 32,
+      "type": "metadata",
+      "checksum": "8694488cc761bdce073eea44ea8ced8b",
+      "checksumType": "md5"
+    }
+  ],
+  "n": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1",
+  "cv": "1",
+  "pk": "OPERA_L2_CSLC-S1_V1#201610",
+  "sk": "2016-10-15T23:34:24.000000Z#OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1",
+  "gsi1pk": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1",
+  "gsi1sk": "OPERA_L2_CSLC-S1_V1#201610",
+  "yyyymm": "201610",
+  "collection": "OPERA_L2_CSLC-S1_V1",
+  "granule_id": "OPERA_L2_CSLC-S1_T048-101257-IW2_20161015T233424Z_20240627T223207Z_S1B_VV_v1.1",
+  "load_test_count": 0,
+  "beginning_date_time": "2016-10-15T23:34:24.000000Z"
+}
+```
