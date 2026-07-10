@@ -1,0 +1,49 @@
+[project]
+name = "ctorm"
+version = "0.1.0"
+description = "Load tester for cumulus"
+readme = "README.md"
+authors = [
+    { name = "Ben Barton", email = "bbarton@alaska.edu" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "aws-lambda-typing>=2.20.0",
+    "boto3>=1.43.26",
+    "mypy-boto3-s3>=1.43.14",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.5.1",
+    "boto3-stubs>=1.43.27",
+    "pytest>=8.0.0",
+    "ruff>=0.15.13",
+]
+
+[project.scripts]
+ctorm = "ctorm.main:main"
+
+[build-system]
+requires = ["uv_build>=0.10.3,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py312
+[testenv]
+deps =
+    mypy-boto3-s3
+    pytest
+    pytest-mock
+commands =
+    pytest
+"""
+
+[tool.ruff]
+target-version = "py312"
