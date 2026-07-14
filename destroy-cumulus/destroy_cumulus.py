@@ -110,6 +110,12 @@ class Arn:
                 # arn:aws:iam::123456789012:role/ngap/system/s3-all-region-access-role
                 self.id = rest
                 self.name = rest.split("/")[-1]
+            elif self.service == "elasticloadbalancing" and self.type == "loadbalancer":
+                # Special case for load balancers where arns look like this:
+                # arn:aws:elasticloadbalancing:us-west-2:123456789101:loadbalancer/app/rew-cumulus-uat2-iceberg/6680b609e7f9d62a
+                rest_parts = rest.split("/")
+                self.name = rest_parts[1]
+                self.id = rest_parts[2]
             else:
                 self.name, *rest = rest.split("/", 1)
                 self.id = "".join(rest)
@@ -230,6 +236,27 @@ class Resource:
     def __eq__(self, other):
         return (self.__class__, self.id) == (other.__class__, other.id)
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r}, id={self.id!r})"
+
+
+class StateResource(Resource, register=False):
+    """A resource with a state attribute"""
+
+    def __init__(self, name, id, *, state=None, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.state = state
+
+    @classmethod
+    def from_arn(cls, arn, *, state=None, tags=()):
+        return cls(arn.name, arn.id, state=state, arn=arn, tags=tags)
+
+    def display(self, *args, **kwargs):
+        lines = super().display(*args, **kwargs)
+        if self.state:
+            lines[0] = lines[0] + f" ({self.state})"
+        return lines
+
 
 class VersionedResource(Resource, register=False):
     """A resource where the arn ends with a ':<VersionNumber>'"""
@@ -299,6 +326,7 @@ class TaggedResourceCollector:
                 "apigateway:restapis-stages",
                 "application-autoscaling:scalable-target",
                 "ecs:service",
+                "elasticloadbalancing:listener",
             ):
                 log.debug(
                     "Skipping arn '%s' for type '%s' as it is a known child "
@@ -529,6 +557,112 @@ class AthenaWorkGroup(Resource):
         )
 
 
+class BatchComputeEnvironment(StateResource):
+    TYPE_FILTER = "batch:compute-environment"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("batch")
+        paginator = client.get_paginator("describe_compute_environments")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                name,
+                state=entry["state"],
+                arn=Arn(entry["computeEnvironmentArn"]),
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
+            )
+            for response in paginator.paginate()
+            for entry in response.get("computeEnvironments", ())
+            if name_matcher.matches(name := entry["computeEnvironmentName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("batch")
+        if self.state == "ENABLED":
+            client.update_compute_environment(
+                computeEnvironment=str(self.arn),
+                state="DISABLED",
+            )
+        # This can fail silently if the service role has already been deleted
+        client.delete_compute_environment(computeEnvironment=str(self.arn))
+
+
+class BatchJobDefinition(StateResource, VersionedResource):
+    TYPE_FILTER = "batch:job-definition"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("batch")
+        paginator = client.get_paginator("describe_job_definitions")
+
+        resources = [
+            # ruff hint
+            cls(
+                name,
+                str(entry["revision"]),
+                state=entry["status"],
+                arn=Arn(entry["jobDefinitionArn"]),
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
+            )
+            for response in paginator.paginate()
+            for entry in response.get("jobDefinitions", ())
+            if name_matcher.matches(name := entry["jobDefinitionName"])
+        ]
+        return resources
+
+    def delete(self, get_client):
+        client = get_client("batch")
+        client.deregister_job_definition(jobDefinition=str(self.arn))
+
+
+class BatchJobQueue(StateResource):
+    TYPE_FILTER = "batch:job-queue"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("batch")
+        paginator = client.get_paginator("describe_job_queues")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                name,
+                state=entry["state"],
+                arn=Arn(entry["jobQueueArn"]),
+                tags=[
+                    # ruff hint
+                    dict(Key=k, Value=v)
+                    for k, v in entry.get("tags", {}).items()
+                ],
+            )
+            for response in paginator.paginate()
+            for entry in response.get("jobQueues", ())
+            if name_matcher.matches(name := entry["jobQueueName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("batch")
+        if self.state == "ENABLED":
+            client.update_job_queue(
+                jobQueue=str(self.arn),
+                state="DISABLED",
+                computeEnvironmentOrder=[],
+            )
+        client.delete_job_queue(jobQueue=str(self.arn))
+
+
 class Bucket(Resource):
     TYPE_FILTER = "s3"
 
@@ -572,6 +706,28 @@ class Bucket(Resource):
             )
 
         client.delete_bucket(Bucket=self.name)
+
+
+class Certificate(Resource):
+    TYPE_FILTER = "acm:certificate"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("acm")
+        paginator = client.get_paginator("list_certificates")
+
+        return [
+            cls.from_arn(
+                Arn(entry["CertificateArn"]),
+            )
+            for response in paginator.paginate()
+            for entry in response.get("CertificateSummaryList", ())
+            if name_matcher.matches(entry["DomainName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("acm")
+        client.delete_certificate(CertificateArn=str(self.arn))
 
 
 class CloudFormationStack(Resource):
@@ -775,6 +931,53 @@ class DynamoDBTable(Resource):
         client.delete_table(TableName=self.name)
 
 
+class EC2Instance(StateResource):
+    TYPE_FILTER = "ec2:instance"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("ec2")
+        paginator = client.get_paginator("describe_instances")
+
+        return [
+            cls(
+                name,
+                entry["InstanceId"],
+                state=entry.get("State", {}).get("Name"),
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Name="tag:Name",
+                        Values=[name_matcher.prefix + "*"],
+                    ),
+                    dict(
+                        Name="instance-state-name",
+                        Values=[
+                            "pending",
+                            "running",
+                            "shutting-down",
+                            "stopping",
+                            "stopped",
+                        ],
+                    ),
+                ],
+            )
+            for reservation in response.get("Reservations", ())
+            for entry in reservation.get("Instances", ())
+            if name_matcher.matches(name := _tag_dict(entry.get("Tags", ())).get("Name"))
+        ]
+
+    def delete(self, get_client):
+        client = get_client("ec2")
+        # NOTE: Could actually do a bulk delete here
+        client.terminate_instances(InstanceIds=[self.id])
+
+    def get_display_name(self):
+        return f"{self.id} {self.name}"
+
+
 class ECRRepository(Resource):
     """Possible workflow resource. Not part of core."""
 
@@ -800,11 +1003,11 @@ class ECRRepository(Resource):
         )
 
 
-class ECSCluster(Resource):
+class ECSCluster(StateResource):
     TYPE_FILTER = "ecs:cluster"
 
-    def __init__(self, name, id, *, services=(), arn=None, tags=()):
-        super().__init__(name, id, arn=arn, tags=tags)
+    def __init__(self, name, id, *, services=(), state=None, arn=None, tags=()):
+        super().__init__(name, id, state=state, arn=arn, tags=tags)
         self.services = sorted(
             services,
             key=lambda res: (res.name, res.id),
@@ -833,6 +1036,31 @@ class ECSCluster(Resource):
             for arn_ in response["clusterArns"]
             if name_matcher.matches((arn := Arn(arn_)).name)
         ]
+
+    def load(self, get_client):
+        self.load_bulk(get_client, [self])
+
+    @classmethod
+    def load_bulk(cls, get_client, resources):
+        client = get_client("ecs")
+
+        clusters_by_arn = {str(resource.arn): resource for resource in resources}
+
+        # Can't be paginated. Will accept up to 100 cluster ARNs
+        response = client.describe_clusters(
+            clusters=[str(resource.arn) for resource in resources],
+            include=["TAGS"],
+        )
+
+        for entry in response.get("clusters", ()):
+            cluster = clusters_by_arn[entry["clusterArn"]]
+
+            cluster.state = entry["status"]
+            cluster.tags = {
+                # ruff hint
+                tag["key"]: tag["value"]
+                for tag in entry.get("tags")
+            }
 
     def delete(self, get_client):
         client = get_client("ecs")
@@ -869,12 +1097,8 @@ class ECSService(Resource):
         )
 
 
-class ECSTaskDefinition(VersionedResource):
+class ECSTaskDefinition(StateResource, VersionedResource):
     TYPE_FILTER = "ecs:task-definition"
-
-    def __init__(self, name, id, *, status=None, arn=None, tags=()):
-        super().__init__(name, id, arn=arn, tags=tags)
-        self.status = status
 
     @classmethod
     def gather(cls, get_client, name_matcher, _options):
@@ -882,7 +1106,7 @@ class ECSTaskDefinition(VersionedResource):
         paginator = client.get_paginator("list_task_definitions")
 
         return [
-            cls(arn.name, arn.id, status=status, arn=arn)
+            cls(arn.name, arn.id, state=status, arn=arn)
             for status in ("ACTIVE", "INACTIVE", "DELETE_IN_PROGRESS")
             for response in paginator.paginate(status=status)
             for arn_ in response["taskDefinitionArns"]
@@ -891,16 +1115,81 @@ class ECSTaskDefinition(VersionedResource):
 
     def delete(self, get_client):
         client = get_client("ecs")
-        if self.status != "DELETE_IN_PROGRESS":
+        if self.state != "DELETE_IN_PROGRESS":
             client.deregister_task_definition(taskDefinition=str(self.arn))
         # NOTE: Could actually do a bulk delete here
         client.delete_task_definitions(taskDefinitions=[str(self.arn)])
 
-    def display(self, *args, **kwargs):
-        lines = super().display(*args, **kwargs)
-        if self.status:
-            lines[0] = lines[0] + f" ({self.status})"
-        return lines
+
+class EFSFileSystem(Resource):
+    TYPE_FILTER = "elasticfilesystem:file-system"
+
+    def __init__(self, name, id, mount_targets, *, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.mount_targets = sorted(
+            mount_targets,
+            key=lambda res: (res.name, res.id),
+        )
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("efs")
+        paginator = client.get_paginator("describe_file_systems")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                entry["FileSystemId"],
+                mount_targets=[],
+                arn=Arn(entry["FileSystemArn"]),
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate()
+            for entry in response.get("FileSystems", ())
+            if name_matcher.matches(name := entry["Name"])
+        ]
+
+    def load(self, get_client):
+        client = get_client("efs")
+        paginator = client.get_paginator("describe_file_systems")
+        target_paginator = client.get_paginator("describe_mount_targets")
+
+        for response in paginator.paginate(FileSystemId=self.id):
+            for entry in response.get("FileSystems", ()):
+                if entry["FileSystemId"] != self.id:
+                    continue
+
+                self.name = entry["Name"]
+                self.tags = _tag_dict(entry.get("Tags", ()))
+
+        self.mount_targets = sorted(
+            [
+                EFSMountTarget(
+                    entry["MountTargetId"],
+                    entry["MountTargetId"],
+                    state=entry["LifeCycleState"],
+                )
+                for response in target_paginator.paginate(FileSystemId=self.id)
+                for entry in response.get("MountTargets", ())
+            ],
+            key=lambda res: (res.name, res.id),
+        )
+
+    def delete(self, get_client):
+        client = get_client("efs")
+        client.delete_file_system(FileSystemId=self.id)
+
+    def get_dependencies(self):
+        return self.mount_targets
+
+
+class EFSMountTarget(StateResource):
+    TYPE_FILTER = "elasticfilesystem:mount-target"
+
+    def delete(self, get_client):
+        client = get_client("efs")
+        client.delete_mount_target(MountTargetId=self.id)
 
 
 class ElasticsearchDomain(Resource):
@@ -921,6 +1210,52 @@ class ElasticsearchDomain(Resource):
     def delete(self, get_client):
         client = get_client("opensearch")
         client.delete_domain(DomainName=self.name)
+
+
+class ELBLoadBalancer(Resource):
+    TYPE_FILTER = "elasticloadbalancing:loadbalancer"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("elbv2")
+        paginator = client.get_paginator("describe_load_balancers")
+
+        return [
+            # ruff hint
+            cls.from_arn(Arn(entry["LoadBalancerArn"]))
+            for response in paginator.paginate()
+            for entry in response.get("LoadBalancers", ())
+            if name_matcher.matches(entry["LoadBalancerName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("elbv2")
+        client.delete_load_balancer(LoadBalancerArn=str(self.arn))
+
+
+class ELBTargetGroup(Resource):
+    TYPE_FILTER = "elasticloadbalancing:targetgroup"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("elbv2")
+        paginator = client.get_paginator("describe_target_groups")
+
+        # TargetGroupNames are unlikely to match because they are mostly
+        # overwritten by a time stamp e.g. rew-cu20260626220724919600000002
+        # However, they are discoverable through the resource tagging API.
+
+        return [
+            # ruff hint
+            cls.from_arn(Arn(entry["TargetGroupArn"]))
+            for response in paginator.paginate()
+            for entry in response.get("TargetGroups", ())
+            if name_matcher.matches(entry["TargetGroupName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("elbv2")
+        client.delete_target_group(TargetGroupArn=str(self.arn))
 
 
 class EventSourceMapping(Resource):
@@ -1215,12 +1550,40 @@ class LambdaLayerVersion(VersionedResource):
         )
 
 
-class NetworkInterface(Resource):
-    TYPE_FILTER = "ec2:network-interface"
+class LaunchTemplate(Resource):
+    TYPE_FILTER = "ec2:launch-template"
 
-    def __init__(self, name, id, status, *, arn=None, tags=()):
-        super().__init__(name, id, arn=arn, tags=tags)
-        self.status = status
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("ec2")
+        paginator = client.get_paginator("describe_launch_templates")
+
+        return [
+            # ruff hint
+            cls(
+                name,
+                entry["LaunchTemplateId"],
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Name="launch-template-name",
+                        Values=[name_matcher.prefix + "*"],
+                    ),
+                ],
+            )
+            for entry in response.get("LaunchTemplates", ())
+            if name_matcher.matches(name := entry["LaunchTemplateName"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("ec2")
+        client.delete_launch_template(LaunchTemplateId=self.id)
+
+
+class NetworkInterface(StateResource):
+    TYPE_FILTER = "ec2:network-interface"
 
     def delete(self, get_client):
         client = get_client("ec2")
@@ -1229,14 +1592,20 @@ class NetworkInterface(Resource):
     def get_display_name(self):
         return self.name or self.id
 
-    def display(self, *args, **kwargs):
-        lines = super().display(*args, **kwargs)
-        lines[0] = lines[0] + f" ({self.status})"
-        return lines
-
 
 class RDSCluster(Resource):
     TYPE_FILTER = "rds:cluster"
+
+    def __init__(self, name, id, db_instances, *, arn=None, tags=()):
+        super().__init__(name, id, arn=arn, tags=tags)
+        self.db_instances = sorted(
+            db_instances,
+            key=lambda res: (res.name, res.id),
+        )
+
+    @classmethod
+    def from_arn(cls, arn, *, tags=()):
+        return cls(arn.name, arn.id, [], arn=arn, tags=tags)
 
     @classmethod
     def gather(cls, get_client, name_matcher, _options):
@@ -1244,15 +1613,92 @@ class RDSCluster(Resource):
         paginator = client.get_paginator("describe_db_clusters")
 
         return [
-            cls.from_arn(Arn(entry["DBClusterArn"]), tags=entry.get("TagList", ()))
-            for response in paginator.paginate()
+            cls(
+                id,
+                id,
+                db_instances=[],
+                arn=Arn(entry["DBClusterArn"]),
+                tags=entry.get("TagList", ()),
+            )
+            for response in paginator.paginate(
+                # NOTE(07/01/26): Filters are supported, but wildcards are not
+            )
             for entry in response.get("DBClusters", ())
-            if name_matcher.matches(entry["DBClusterIdentifier"])
+            if name_matcher.matches(id := entry["DBClusterIdentifier"])
         ]
+
+    def load(self, get_client):
+        self.load_bulk(get_client, [self])
+
+    @classmethod
+    def load_bulk(cls, get_client, resources):
+        client = get_client("rds")
+        paginator = client.get_paginator("describe_db_clusters")
+        instance_paginator = client.get_paginator("describe_db_instances")
+
+        db_clusters_by_id = {resource.id: resource for resource in resources}
+        db_cluster_ids = list(db_clusters_by_id.keys())
+
+        for response in paginator.paginate(
+            Filters=[
+                dict(
+                    Name="db-cluster-id",
+                    Values=db_cluster_ids,
+                ),
+            ],
+        ):
+            for entry in response.get("DBClusters", ()):
+                cluster = db_clusters_by_id[entry["DBClusterIdentifier"]]
+
+                cluster.db_instances.clear()
+                cluster.tags = _tag_dict(entry.get("TagList", ()))
+
+        for response in instance_paginator.paginate(
+            Filters=[
+                dict(
+                    Name="db-cluster-id",
+                    Values=db_cluster_ids,
+                ),
+            ],
+        ):
+            for entry in response.get("DBInstances", ()):
+                db_instance = RDSClusterInstance(
+                    entry["DBInstanceIdentifier"],
+                    entry["DBInstanceIdentifier"],
+                    tags=entry.get("TagList", ()),
+                )
+                cluster = db_clusters_by_id.get(entry["DBClusterIdentifier"])
+
+                if not cluster:
+                    continue
+
+                cluster.db_instances.append(db_instance)
+
+        for cluster in resources:
+            cluster.db_instances.sort(
+                key=lambda res: (res.name, res.id),
+            )
 
     def delete(self, get_client):
         client = get_client("rds")
-        client.delete_db_cluster(DBClusterIdentifier=self.id, SkipFinalSnapshot=True)
+        client.delete_db_cluster(
+            DBClusterIdentifier=self.id,
+            SkipFinalSnapshot=True,
+        )
+
+    def get_dependencies(self):
+        return self.db_instances
+
+
+class RDSClusterInstance(Resource):
+    TYPE_FILTER = "rds:db"
+
+    def delete(self, get_client):
+        client = get_client("rds")
+        client.delete_db_instance(
+            DBInstanceIdentifier=self.id,
+            SkipFinalSnapshot=True,
+        )
 
 
 class RDSClusterParameterGroup(Resource):
@@ -1301,7 +1747,7 @@ class RDSSubnetGroup(Resource):
         client.delete_db_subnet_group(DBSubnetGroupName=self.name)
 
 
-class Secret(Resource):
+class Secret(StateResource):
     TYPE_FILTER = "secretsmanager:secret"
 
     @classmethod
@@ -1310,8 +1756,19 @@ class Secret(Resource):
         paginator = client.get_paginator("list_secrets")
 
         return [
-            cls.from_arn(Arn(entry["ARN"]), tags=entry.get("Tags", ()))
-            for response in paginator.paginate()
+            cls.from_arn(
+                Arn(entry["ARN"]),
+                state="DELETED" if "DeletedDate" in entry else None,
+                tags=entry.get("Tags", ()),
+            )
+            for response in paginator.paginate(
+                Filters=[
+                    dict(
+                        Key="name",
+                        Values=[name_matcher.prefix],
+                    ),
+                ]
+            )
             for entry in response.get("SecretList", ())
             if name_matcher.matches(entry["Name"])
         ]
@@ -1387,7 +1844,7 @@ class SecurityGroup(Resource):
                 network_interface = NetworkInterface(
                     entry["Description"],
                     entry["NetworkInterfaceId"],
-                    entry["Status"],
+                    state=entry["Status"],
                     tags=entry.get("TagSet", ()),
                 )
                 for group_entry in entry["Groups"]:
@@ -1582,6 +2039,7 @@ class ResourceSet:
     def __init__(self, iterable=()):
         self._resources = {}
         self._resources_by_class = defaultdict(set)
+        self._dependencies = {}
         for item in iterable:
             self.add(item)
 
@@ -1596,8 +2054,23 @@ class ResourceSet:
             self._resources_by_class[resource.__class__].discard(resource)
             resource.tags.update(old.tags)
 
-        self._resources[resource] = resource
+        if resource not in self._dependencies:
+            self._resources[resource] = resource
         self._resources_by_class[resource.__class__].add(resource)
+
+        for dependency in resource.get_dependencies():
+            self._resources.pop(dependency, None)
+            self._dependencies[dependency] = dependency
+            self.add(dependency)
+
+    def resolve_dependencies(self):
+        # Needs to be called if dependencies are loaded after resources are
+        # added to the set.
+        for resource in list(self):
+            for dependency in resource.get_dependencies():
+                self._resources.pop(dependency, None)
+                self._dependencies[dependency] = dependency
+                self.add(dependency)
 
     def iter_by_class(self):
         for key, values in self._resources_by_class.items():
@@ -1621,6 +2094,7 @@ class CumulusDestroyer:
     RESOURCE_DESTRUCTION_ORDER = [
         CloudFormationStack,
         ApiGateway,
+        Certificate,
         LambdaFunction,
         LambdaLayerVersion,
         StepFunction,
@@ -1634,9 +2108,17 @@ class CumulusDestroyer:
         SNSTopic,
         SQSQueue,
         DynamoDBTable,
+        BatchJobQueue,
+        BatchComputeEnvironment,
+        BatchJobDefinition,
+        LaunchTemplate,
+        EC2Instance,
         ECSCluster,
         ECSTaskDefinition,
         ECRRepository,
+        EFSFileSystem,
+        ELBLoadBalancer,
+        ELBTargetGroup,
         RDSCluster,
         RDSClusterParameterGroup,
         RDSSubnetGroup,
@@ -1764,6 +2246,8 @@ class CumulusDestroyer:
 
         for cls, resources in resource_set.iter_by_class():
             cls.load_bulk(self.client, resources)
+
+        resource_set.resolve_dependencies()
 
         end = time.perf_counter()
         log.debug("Total time gathering was %.1fs", end - start)

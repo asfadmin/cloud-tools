@@ -139,6 +139,22 @@ def test_arn_api_gateway_stage():
     assert arn.type_id == "apigateway:restapis-stages"
 
 
+def test_arn_load_balancer():
+    arn = Arn(
+        "arn:aws:elasticloadbalancing:us-west-2:123456789101:loadbalancer/app/"
+        "rew-cumulus-uat2-iceberg/6680b609e7f9d62a",
+    )
+
+    assert arn.partition == "aws"
+    assert arn.service == "elasticloadbalancing"
+    assert arn.region == "us-west-2"
+    assert arn.account == "123456789101"
+    assert arn.type == "loadbalancer"
+    assert arn.name == "rew-cumulus-uat2-iceberg"
+    assert arn.id == "6680b609e7f9d62a"
+    assert arn.type_id == "elasticloadbalancing:loadbalancer"
+
+
 #
 # Colons and slashes in identifier
 #
