@@ -1,33 +1,36 @@
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core~=2.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "destroy-cumulus"
-version = "0.4.0"
+version = "0.5.0"
 description = ""
 license = "Apache-2.0"
-authors = ["Rohan Weeden <reweeden@alaska.edu>"]
+authors = [
+  { name = "Rohan Weeden", email = "reweeden@alaska.edu" },
+]
 readme = "README.md"
+requires-python = "~=3.9"
+dependencies = [
+  "boto3~=1.24",
+]
+
+[tool.poetry]
 packages = [{include = "destroy_cumulus.py"}]
 
-[tool.poetry.scripts]
+[project.scripts]
 destroy-cumulus = "destroy_cumulus:main"
 decumulus = "destroy_cumulus:main"
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4"
-
-boto3 = "^1.24.78"
-
 [tool.poetry.group.dev.dependencies]
-moto = {extras = ["all"], version = "^5.1.6"}
+moto = {extras = ["all"], version = "~=5.1"}
 # openapi-schema-validator uses a private import from jsonpath and is therefore
 # not compatible across all versions. 0.6.1 has a patch for an API change in
 # jsonschema 4.19.1
 # https://github.com/python-openapi/openapi-schema-validator/issues/131
 openapi-schema-validator = ">=0.6.1"
-pytest = "^8.3.4"
+pytest = "~=8.3"
 
 [tool.pytest.ini_options]
 markers = [

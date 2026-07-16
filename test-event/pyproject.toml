@@ -1,21 +1,25 @@
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core~=2.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "test-event"
-version = "0.1.0"
+version = "0.2.0"
 description = "A helper tool for triggering event-based ingest"
 license = "Apache-2.0"
-authors = ["McKade Sorensen <dmsorensen@alaska.edu>"]
+authors = [
+  { name = "McKade Sorensen", email = "dmsorensen@alaska.edu" },
+  { name = "Rohan Weeden", email = "reweeden@alaska.edu" },
+]
 readme = "README.md"
+requires-python = "~=3.9"
+dependencies = [
+  "boto3~=1.28",
+]
+
+[tool.poetry]
 packages = [{include = "test_event"}]
 
-[tool.poetry.scripts]
+[project.scripts]
 test-event = "test_event:main.main"
 tevent = "test_event:main.main"
-
-[tool.poetry.dependencies]
-python = ">=3.9,<4"
-
-boto3 = "^1.28.76"

@@ -1,26 +1,29 @@
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core~=2.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "trigger-s3-event"
-version = "0.1.2"
+version = "0.2.0"
 description = ""
 license = "Apache-2.0"
-authors = ["Rohan Weeden <reweeden@alaska.edu>"]
+authors = [
+  { name = "Rohan Weeden", email = "reweeden@alaska.edu" },
+]
 readme = "README.md"
+requires-python = "~=3.9"
+dependencies = [
+  "boto3~=1.28",
+  "dateparser~=1.2",
+]
+
+[tool.poetry]
 packages = [{include = "trigger_s3_event"}]
 
-[tool.poetry.scripts]
+[project.scripts]
 trigger-s3-event = "trigger_s3_event:main.main"
 s3event = "trigger_s3_event:main.main"
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4"
-
-boto3 = "^1.28.76"
-dateparser = "^1.2.0"
-
 [tool.poetry.group.dev.dependencies]
-moto = "^5.0.22"
-pytest = "^8.3.4"
+moto = "~=5.0"
+pytest = "~=8.3"

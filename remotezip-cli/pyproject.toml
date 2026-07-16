@@ -1,26 +1,29 @@
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core~=2.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "remotezip-cli"
-version = "0.2.1"
+version = "0.3.0"
 description = ""
 license = "Apache-2.0"
-authors = ["Rohan Weeden <reweeden@alaska.edu>"]
+authors = [
+  { name = "Rohan Weeden", email = "reweeden@alaska.edu" },
+]
 readme = "README.md"
+requires-python = "~=3.9"
+dependencies = [
+  "aws-requests-auth~=0.4.0",
+  "boto3~=1.24",
+  "humanize~=4.4",
+  "remotezip~=0.9.0",
+]
+
+[tool.poetry]
 packages = [{include = "remotezip_cli.py"}]
 
-[tool.poetry.scripts]
+[project.scripts]
 rz = "remotezip_cli:main"
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4"
-
-aws-requests-auth = "^0.4.3"
-boto3 = "^1.24.76"
-humanize = "^4.4.0"
-remotezip = "^0.9.4"
-
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.4"
+pytest = "~=8.3"
