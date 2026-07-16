@@ -6,6 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "test-event"
 version = "0.1.0"
 description = "A helper tool for triggering event-based ingest"
+license = "Apache-2.0"
 authors = ["McKade Sorensen <dmsorensen@alaska.edu>"]
 readme = "README.md"
 packages = [{include = "test_event"}]

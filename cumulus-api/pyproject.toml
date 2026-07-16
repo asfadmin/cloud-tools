@@ -6,6 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "cumulus-api"
 version = "0.3.2"
 description = ""
+license = "Apache-2.0"
 authors = ["Rohan Weeden <reweeden@alaska.edu>", "Matt Perry <mperry37@alaska.edu>"]
 readme = "README.md"
 packages = [{include = "cumulus_api"}]

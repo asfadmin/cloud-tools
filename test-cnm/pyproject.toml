@@ -6,6 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "test-cnm"
 version = "0.9.1"
 description = ""
+license = "Apache-2.0"
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"
 packages = [{include = "test_cnm"}]
