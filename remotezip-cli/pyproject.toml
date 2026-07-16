@@ -6,6 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "remotezip-cli"
 version = "0.2.1"
 description = ""
+license = "Apache-2.0"
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"
 packages = [{include = "remotezip_cli.py"}]

@@ -6,6 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "destroy-cumulus"
 version = "0.4.0"
 description = ""
+license = "Apache-2.0"
 authors = ["Rohan Weeden <reweeden@alaska.edu>"]
 readme = "README.md"
 packages = [{include = "destroy_cumulus.py"}]
