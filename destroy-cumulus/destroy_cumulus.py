@@ -1258,6 +1258,34 @@ class ELBTargetGroup(Resource):
         client.delete_target_group(TargetGroupArn=str(self.arn))
 
 
+class EventBridgePipe(StateResource):
+    TYPE_FILTER = "pipes:pipe"
+
+    @classmethod
+    def gather(cls, get_client, name_matcher, _options):
+        client = get_client("pipes")
+        paginator = client.get_paginator("list_pipes")
+
+        kwargs = (
+            dict(
+                NamePrefix=name_matcher.prefix,
+            )
+            if name_matcher.prefix
+            else {}
+        )
+
+        return [
+            cls.from_arn(Arn(entry["Arn"]), state=entry["CurrentState"])
+            for response in paginator.paginate(**kwargs)
+            for entry in response.get("Pipes", ())
+            if name_matcher.matches(entry["Name"])
+        ]
+
+    def delete(self, get_client):
+        client = get_client("pipes")
+        client.delete_pipe(Name=self.name)
+
+
 class EventSourceMapping(Resource):
     TYPE_FILTER = "lambda:event-source-mapping"
 
@@ -2100,6 +2128,7 @@ class CumulusDestroyer:
         StepFunction,
         Activity,
         EventSourceMapping,
+        EventBridgePipe,
         CloudWatchDashboard,
         CloudWatchAlarm,
         CloudWatchEventRule,
