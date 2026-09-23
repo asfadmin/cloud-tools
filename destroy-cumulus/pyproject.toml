@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "destroy-cumulus"
-version = "0.5.0"
+version = "0.5.1"
 description = ""
 license = "Apache-2.0"
 authors = [
