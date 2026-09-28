@@ -10,7 +10,7 @@ from test_cnm.tester.types import FileDict, TestInfo
 
 log = logging.getLogger(__name__)
 
-DATA_VERSION_PATTERN = re.compile(r"^\d+\.\d+|\d$")
+DATA_VERSION_PATTERN = re.compile(r"^\d+\.\d+|\d+$")
 
 
 class BucketTestCollector:

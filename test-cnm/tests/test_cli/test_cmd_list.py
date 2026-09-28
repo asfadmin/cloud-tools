@@ -30,6 +30,9 @@ def test_bucket(test_bucket):
     test_bucket.Object("DATA_VERSION_2/1/PRODUCT_1/file1.txt").put(Body=b"")
     test_bucket.Object("DATA_VERSION_2/1/PRODUCT_1/file2.txt").put(Body=b"")
 
+    test_bucket.Object("DATA_VERSION_3/003/PRODUCT_1/file1.txt").put(Body=b"")
+    test_bucket.Object("DATA_VERSION_3/003/PRODUCT_1/file2.txt").put(Body=b"")
+
     test_bucket.Object("OTHER_COLLECTION/PRODUCT_1/file1.txt").put(Body=b"")
     test_bucket.Object("OTHER_COLLECTION/PRODUCT_1/file2.txt").put(Body=b"")
 
@@ -52,10 +55,12 @@ def test_list_all(capcli):
       - DATA_VERSION_1/1.0/PRODUCT_1 (2 files)
     DATA_VERSION_2:
       - DATA_VERSION_2/1/PRODUCT_1 (2 files)
+    DATA_VERSION_3:
+      - DATA_VERSION_3/003/PRODUCT_1 (2 files)
     OTHER_COLLECTION:
       - OTHER_COLLECTION/PRODUCT_1 (2 files)
 
-    Totals: 5 Collections; 6 Tests
+    Totals: 6 Collections; 7 Tests
     """.lstrip("\n")
     )
 
@@ -122,11 +127,15 @@ def test_list_files(capcli):
       - DATA_VERSION_2/1/PRODUCT_1 (2 files)
         ├── file1.txt
         └── file2.txt
+    DATA_VERSION_3:
+      - DATA_VERSION_3/003/PRODUCT_1 (2 files)
+        ├── file1.txt
+        └── file2.txt
     OTHER_COLLECTION:
       - OTHER_COLLECTION/PRODUCT_1 (2 files)
         ├── file1.txt
         └── file2.txt
 
-    Totals: 5 Collections; 6 Tests
+    Totals: 6 Collections; 7 Tests
     """.lstrip("\n")
     )
