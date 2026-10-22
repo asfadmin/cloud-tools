@@ -14,14 +14,17 @@ class CnmIngestClient:
     def __init__(
         self,
         session: boto3.Session,
+        response_session: boto3.Session,
         make_cnm_s: CnmSGeneratorType,
         cnm_response_queue: str,
     ):
         self.session = session
+        self.response_session = response_session
         self.make_cnm_s = make_cnm_s
         self.cnm_response_queue = cnm_response_queue
 
         self.client = session.client("sqs")
+        self.response_client = response_session.client("sqs")
         self._requests = {}
 
     @property
@@ -90,6 +93,7 @@ class CnmIngestClient:
     def _receive_message(self, wait_time_seconds: Optional[int] = None) -> dict:
         if wait_time_seconds is None:
             log.debug("Short polling %s", self.cnm_response_queue)
+            # TODO(gjclark): This should be a client built off of the response profile
             return self.client.receive_message(
                 QueueUrl=self.cnm_response_queue,
                 MaxNumberOfMessages=10,
@@ -100,6 +104,7 @@ class CnmIngestClient:
             self.cnm_response_queue,
             wait_time_seconds,
         )
+        # TODO(gjclark): This should be a client built off of the response profile
         return self.client.receive_message(
             QueueUrl=self.cnm_response_queue,
             MaxNumberOfMessages=10,

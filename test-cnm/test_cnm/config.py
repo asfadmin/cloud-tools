@@ -146,9 +146,16 @@ class ConfigFull(ConfigBase):
     trace: Optional[str] = None
     # TODO(reweeden): python3.10 refactor duplication
     profile: Optional[str] = None
+    response_profile: Optional[str] = None
+
 
     def session(self) -> boto3.Session:
         return boto3.Session(profile_name=self.profile)
+
+    def response_session(self):
+        if self.response_profile != self.profile:
+            return boto3.Session(profile_name=self.response_profile)
+        return self.session()
 
     def cnm_ingest_queue_name(self) -> str:
         return get_queue_name(self.stack_name, self.cnm_ingest_queue)

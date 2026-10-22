@@ -23,10 +23,12 @@ class Metadata:
     def __init__(
         self,
         session: boto3.Session,
+        response_session: boto3.Session,
         bucket: str,
         key: str = "metadata.json",
     ):
         self.session = session
+        self.response_session = response_session
         self.bucket = bucket
         self.key = key
         self.test_config_key = "$testconfig"

@@ -15,12 +15,14 @@ class TestExecutor:
     def __init__(
         self,
         session,
+        response_session,
         collector: TestCollector,
         make_cnm_s: CnmSGenerator,
         metadata: Metadata,
         config: ConfigFull,
     ):
         self.session = session
+        self.response_session = response_session
         self.collector = collector
         self.make_cnm_s = make_cnm_s
         self.metadata = metadata
