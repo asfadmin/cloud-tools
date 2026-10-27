@@ -41,6 +41,7 @@ def cmd_test(
     filters = args.filter
 
     session = config.session()
+    response_session = config.response_session()
 
     metadata = Metadata(session, config.test_bucket)
     metadata.load()
@@ -54,6 +55,7 @@ def cmd_test(
         make_cnm_s=CnmSGenerator(metadata),
         metadata=metadata,
         config=config,
+        response_session=response_session,
     )
 
     log.info("Executing tests on %s", config.stack_name)
