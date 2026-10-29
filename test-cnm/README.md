@@ -85,6 +85,13 @@ If no environment is specified the `default` environment will be used. If a
 config value is missing for the currently specified environment, the value will
 be pulled from the entry in the `[default]` section of the config instead.
 
+If the CNM response queue lives in a different AWS account than the ingest
+queue, set both `response_stack_name` (e.g. `cnsld-cumulus-uat2`) and
+`response_profile` (or pass `--response-stack-name` and `--response-profile`).
+Messages are still submitted to `<stack_name>-<cnm_ingest_queue>` using
+`profile`, but responses are read from
+`<response_stack_name>-<cnm_response_queue>` using `response_profile`.
+
 ## Adding New Data to the Bucket
 
 - Get the Granule S3 Path
