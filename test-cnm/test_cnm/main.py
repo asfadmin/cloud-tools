@@ -88,6 +88,18 @@ def get_parser() -> argparse.ArgumentParser:
         "--trace",
         help="Value for the CNM-S trace element",
     )
+    response_group = parser.add_argument_group(
+        "response account",
+        "Options for reading the CNM response queue from a different account. Must be set together.",
+    )
+    response_group.add_argument(
+        "--response-stack-name",
+        help="Cumulus prefix of the second account e.g. cnsld-cumulus-uat2",
+    )
+    response_group.add_argument(
+        "--response-profile",
+        help="AWS profile name for the account containing the CNM response queue",
+    )
 
     subparsers = parser.add_subparsers(
         title="command",

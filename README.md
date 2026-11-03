@@ -76,6 +76,12 @@ To upgrade a specific tool:
 ```
 pipx upgrade destroy-cumulus
 ```
+
+To test local changes, without missing with the global install:
+```
+pipx run --pip-args=--no-cache-dir --spec ~/Documents/cloud-tools/test-cnm tcnm <args>
+```
+
 </details>
 
 ### For local development

@@ -16,12 +16,15 @@ class CnmIngestClient:
         session: boto3.Session,
         make_cnm_s: CnmSGeneratorType,
         cnm_response_queue: str,
+        response_session: Optional[boto3.Session] = None,
     ):
         self.session = session
+        self.response_session = response_session or session
         self.make_cnm_s = make_cnm_s
         self.cnm_response_queue = cnm_response_queue
 
         self.client = session.client("sqs")
+        self.response_client = self.response_session.client("sqs")
         self._requests = {}
 
     @property
@@ -80,7 +83,7 @@ class CnmIngestClient:
                 message["Body"],
             )
 
-            self.client.delete_message(
+            self.response_client.delete_message(
                 QueueUrl=self.cnm_response_queue,
                 ReceiptHandle=message["ReceiptHandle"],
             )
@@ -90,7 +93,7 @@ class CnmIngestClient:
     def _receive_message(self, wait_time_seconds: Optional[int] = None) -> dict:
         if wait_time_seconds is None:
             log.debug("Short polling %s", self.cnm_response_queue)
-            return self.client.receive_message(
+            return self.response_client.receive_message(
                 QueueUrl=self.cnm_response_queue,
                 MaxNumberOfMessages=10,
             )
@@ -100,7 +103,7 @@ class CnmIngestClient:
             self.cnm_response_queue,
             wait_time_seconds,
         )
-        return self.client.receive_message(
+        return self.response_client.receive_message(
             QueueUrl=self.cnm_response_queue,
             MaxNumberOfMessages=10,
             WaitTimeSeconds=wait_time_seconds,

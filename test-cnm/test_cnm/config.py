@@ -2,6 +2,7 @@ import argparse
 import configparser
 from collections.abc import Mapping
 from dataclasses import MISSING, dataclass, field, fields, replace
+from functools import cache
 from typing import Optional, Union
 
 try:
@@ -16,6 +17,11 @@ DEFAULT = "default"
 
 class ConfigError(Exception):
     pass
+
+
+@cache
+def _get_session(profile: Optional[str]) -> boto3.Session:
+    return boto3.Session(profile_name=profile)
 
 
 @dataclass
@@ -143,18 +149,32 @@ class ConfigFull(ConfigBase):
     provider: str
     default_data_version: str = "1.0"
     stack_name: Optional[str] = None
+    response_stack_name: Optional[str] = None
     trace: Optional[str] = None
     # TODO(reweeden): python3.10 refactor duplication
     profile: Optional[str] = None
+    response_profile: Optional[str] = None
 
     def session(self) -> boto3.Session:
-        return boto3.Session(profile_name=self.profile)
+        return _get_session(self.profile)
+
+    def response_session(self) -> boto3.Session:
+        if bool(self.response_stack_name) != bool(self.response_profile):
+            raise ConfigError("response_stack_name and response_profile must be set together, if set.")
+
+        if self.response_profile:
+            return _get_session(self.response_profile)
+
+        return self.session()
 
     def cnm_ingest_queue_name(self) -> str:
         return get_queue_name(self.stack_name, self.cnm_ingest_queue)
 
     def cnm_response_queue_name(self) -> str:
-        return get_queue_name(self.stack_name, self.cnm_response_queue)
+        return get_queue_name(
+            self.response_stack_name or self.stack_name,
+            self.cnm_response_queue,
+        )
 
 
 def get_queue_name(stack_name: Optional[str], queue_name: str) -> str:

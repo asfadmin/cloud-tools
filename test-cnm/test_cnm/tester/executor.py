@@ -1,7 +1,9 @@
 import json
 import logging
 from collections.abc import Generator
+from typing import Optional
 
+import boto3
 from test_cnm.config import ConfigFull
 from test_cnm.metadata import Metadata
 from test_cnm.tester.cnm_generator import CnmSGenerator
@@ -14,13 +16,15 @@ log = logging.getLogger(__name__)
 class TestExecutor:
     def __init__(
         self,
-        session,
+        session: boto3.Session,
         collector: TestCollector,
         make_cnm_s: CnmSGenerator,
         metadata: Metadata,
         config: ConfigFull,
+        response_session: Optional[boto3.Session] = None,
     ):
         self.session = session
+        self.response_session = response_session or session
         self.collector = collector
         self.make_cnm_s = make_cnm_s
         self.metadata = metadata
@@ -83,6 +87,7 @@ class TestRun:
                 session=self.executor.session,
                 make_cnm_s=self.executor.make_cnm_s,
                 cnm_response_queue=test.cnm_response_queue,
+                response_session=self.executor.response_session,
             )
 
         return self.ingest_clients[key]

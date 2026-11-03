@@ -1,5 +1,6 @@
 import json
 
+import boto3
 import pytest
 from test_cnm.tester.ingest_client import CnmIngestClient
 from test_cnm.tester.types import ExecutableTest
@@ -128,3 +129,25 @@ def test_process_messages(boto_session, sqs_client, mock_make_cnm_s, ingest_queu
         }
     ]
     assert not ingest_client.is_waiting
+
+
+def test_response_session(boto_session, mock_make_cnm_s):
+    ingest_client = CnmIngestClient(
+        session=boto_session,
+        make_cnm_s=mock_make_cnm_s,
+        cnm_response_queue="<unused>",
+        response_session=boto3.Session(region_name="us-west-2"),
+    )
+
+    assert ingest_client.client.meta.region_name == "us-east-1"
+    assert ingest_client.response_client.meta.region_name == "us-west-2"
+
+
+def test_response_session_defaults_to_session(boto_session, mock_make_cnm_s):
+    ingest_client = CnmIngestClient(
+        session=boto_session,
+        make_cnm_s=mock_make_cnm_s,
+        cnm_response_queue="<unused>",
+    )
+
+    assert ingest_client.response_client.meta.region_name == "us-east-1"
